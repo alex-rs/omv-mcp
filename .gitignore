@@ -1,0 +1,55 @@
+# --- Internal / private (this repo is PUBLIC) ---
+# Plans, reference captures, private notes
+/plan/
+/internal/
+*.private.*
+*.local.*
+NOTES.local.md
+
+# Test VM runtime state: disks, cloud-init seed, generated keys and passwords
+/testenv/.state/
+*.qcow2
+*.img
+*.iso
+*.raw
+
+# Secrets and local config
+.env
+.env.*
+!.env.example
+*.pass
+*.token
+*.key
+*.pem
+id_ed25519*
+id_rsa*
+known_hosts*
+config.local.*
+audit.jsonl
+
+# --- Python / tooling ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.uv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.coverage
+coverage.xml
+htmlcov/
+node_modules/
+
+# --- Editors / OS ---
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Claude Code local settings
+.claude/settings.local.json
