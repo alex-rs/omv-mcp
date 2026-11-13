@@ -1,0 +1,1043 @@
+from __future__ import annotations
+
+import contextlib
+from typing import Any, Literal
+
+from fastmcp import Context
+from pydantic import SecretStr
+
+from omv_mcp.models import OperationResult, Page, PlanResponse
+from omv_mcp.omv import NEW_UUID
+from omv_mcp.rpc.redact import redact
+from omv_mcp.safety.guard import (
+    SafetyError,
+    check_protected_group,
+    check_protected_user,
+    shared_folder_refs,
+)
+from omv_mcp.safety.modes import Tier
+from omv_mcp.tools._common import (
+    ExecutionOutcome,
+    PlanSpec,
+    get_state,
+    guarded_write,
+    list_call,
+    rpc_call_ro,
+)
+from omv_mcp.tools.registry import admin, op, ro
+
+
+def _list_args(
+    limit: int,
+    offset: int,
+    search: str | None,
+    sort: str | None,
+    order: Literal["asc", "desc"],
+    fields: list[str] | Literal["all"] | None,
+) -> dict[str, Any]:
+    return {
+        "limit": limit,
+        "offset": offset,
+        "search": search,
+        "sort": sort,
+        "order": order,
+        "fields": fields,
+    }
+
+
+async def shared_folders_list(
+    ctx: Context,
+    resolve_paths: bool = False,
+    limit: int = 50,
+    offset: int = 0,
+    search: str | None = None,
+    sort: str | None = None,
+    order: Literal["asc", "desc"] = "asc",
+    fields: list[str] | Literal["all"] | None = None,
+) -> Page[dict[str, Any]]:
+    state = get_state(ctx)
+    page = await list_call(
+        state,
+        "ShareMgmt",
+        "getList",
+        limit=limit,
+        offset=offset,
+        search=search,
+        sort=sort,
+        order=order,
+        fields=fields,
+        ctx=ctx,
+    )
+    if resolve_paths:
+        for item in page.items:
+            uuid = item.get("uuid")
+            if uuid:
+                try:
+                    item["absolute_path"] = await rpc_call_ro(
+                        state, "ShareMgmt", "getPath", {"uuid": uuid}
+                    )
+                except Exception:
+                    item["absolute_path"] = None
+    return page
+
+
+async def shared_folder_get(ctx: Context, uuid: str) -> Any:
+    state = get_state(ctx)
+    folder = await rpc_call_ro(state, "ShareMgmt", "get", {"uuid": uuid})
+    path = None
+    with contextlib.suppress(Exception):
+        path = await rpc_call_ro(state, "ShareMgmt", "getPath", {"uuid": uuid})
+    return redact({"folder": folder, "absolute_path": path})
+
+
+async def shared_folder_candidates(ctx: Context) -> Any:
+    return redact(await rpc_call_ro(get_state(ctx), "ShareMgmt", "getCandidates"))
+
+
+async def shared_folder_create(
+    ctx: Context,
+    name: str,
+    mntentref: str,
+    comment: str = "",
+    reldirpath: str | None = None,
+    uuid: str | None = None,
+    apply: bool = False,
+    confirm_token: str | None = None,
+) -> PlanResponse | OperationResult:
+    state = get_state(ctx)
+    params = {
+        "uuid": uuid or NEW_UUID,
+        "name": name,
+        "reldirpath": reldirpath or name,
+        "comment": comment,
+        "mntentref": mntentref,
+    }
+    args = dict(params, apply=apply)
+
+    async def build() -> PlanSpec:
+        return PlanSpec(
+            rpc_calls=[{"service": "ShareMgmt", "method": "set", "params": params}],
+            before=None,
+            after={"name": name, "mntentref": mntentref},
+            changes=[{"field": "name", "before": None, "after": name}],
+            modules_expected={"shares"},
+        )
+
+    async def execute(plan: PlanSpec) -> ExecutionOutcome:
+        return ExecutionOutcome(result=await state.backend.call("ShareMgmt", "set", params))
+
+    return await guarded_write(
+        ctx=ctx,
+        tool="shared_folder_create",
+        tier=Tier.OPERATOR,
+        args=args,
+        build=build,
+        execute=execute,
+        confirm_token=confirm_token,
+        apply=apply,
+    )
+
+
+async def shared_folder_delete(
+    ctx: Context,
+    uuid: str,
+    apply: bool = False,
+    confirm_token: str | None = None,
+) -> PlanResponse | OperationResult:
+    state = get_state(ctx)
+
+    async def build() -> PlanSpec:
+        refs = await shared_folder_refs(state.backend, uuid)
+        if refs:
+            raise SafetyError("refusing: shared folder is referenced by " + ", ".join(refs))
+        before = await rpc_call_ro(state, "ShareMgmt", "get", {"uuid": uuid})
+        return PlanSpec(
+            rpc_calls=[{"service": "ShareMgmt", "method": "delete", "params": {"uuid": uuid}}],
+            before=before,
+            after=None,
+            changes=[{"field": "uuid", "before": uuid, "after": None}],
+            side_effects={"recursive": False, "references": refs},
+        )
+
+    async def execute(plan: PlanSpec) -> ExecutionOutcome:
+        return ExecutionOutcome(
+            result=await state.backend.call(
+                "ShareMgmt", "delete", {"uuid": uuid, "recursive": False}
+            )
+        )
+
+    return await guarded_write(
+        ctx=ctx,
+        tool="shared_folder_delete",
+        tier=Tier.ADMIN,
+        args={"uuid": uuid, "apply": apply},
+        build=build,
+        execute=execute,
+        confirm_token=confirm_token,
+        apply=apply,
+    )
+
+
+async def shared_folder_privileges_get(
+    ctx: Context, uuid: str, role: str | None = None, name: str | None = None
+) -> Any:
+    state = get_state(ctx)
+    if role and name:
+        return redact(
+            await rpc_call_ro(
+                state,
+                "ShareMgmt",
+                "getPrivilegesByRole",
+                {"uuid": uuid, "role": role, "name": name},
+            )
+        )
+    return redact(await rpc_call_ro(state, "ShareMgmt", "getPrivileges", {"uuid": uuid}))
+
+
+async def shared_folder_privileges_set(
+    ctx: Context,
+    uuid: str,
+    privileges: list[dict[str, Any]],
+    apply: bool = False,
+    confirm_token: str | None = None,
+) -> PlanResponse | OperationResult:
+    state = get_state(ctx)
+    params = {"uuid": uuid, "privileges": privileges}
+
+    async def build() -> PlanSpec:
+        before = await rpc_call_ro(state, "ShareMgmt", "getPrivileges", {"uuid": uuid})
+        return PlanSpec(
+            rpc_calls=[{"service": "ShareMgmt", "method": "setPrivileges", "params": params}],
+            before=before,
+            after={"privileges": privileges},
+            changes=[{"field": "privileges", "before": before, "after": privileges}],
+        )
+
+    async def execute(plan: PlanSpec) -> ExecutionOutcome:
+        return ExecutionOutcome(
+            result=await state.backend.call("ShareMgmt", "setPrivileges", params)
+        )
+
+    return await guarded_write(
+        ctx=ctx,
+        tool="shared_folder_privileges_set",
+        tier=Tier.OPERATOR,
+        args={"uuid": uuid, "privileges": privileges, "apply": apply},
+        build=build,
+        execute=execute,
+        confirm_token=confirm_token,
+        apply=apply,
+    )
+
+
+async def shared_folder_acl_get(ctx: Context, uuid: str, file: str = "") -> Any:
+    return redact(
+        await rpc_call_ro(get_state(ctx), "ShareMgmt", "getFileACL", {"uuid": uuid, "file": file})
+    )
+
+
+async def snapshots_list(
+    ctx: Context,
+    mntentref: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    search: str | None = None,
+    sort: str | None = None,
+    order: Literal["asc", "desc"] = "asc",
+    fields: list[str] | Literal["all"] | None = None,
+) -> Page[dict[str, Any]]:
+    params = {"mntentref": mntentref} if mntentref else None
+    return await list_call(
+        get_state(ctx),
+        "ShareMgmt",
+        "enumerateAllSnapshots",
+        params=params,
+        limit=limit,
+        offset=offset,
+        search=search,
+        sort=sort,
+        order=order,
+        fields=fields,
+        ctx=ctx,
+    )
+
+
+async def snapshot_create(
+    ctx: Context,
+    uuid: str,
+    name: str,
+    apply: bool = False,
+    confirm_token: str | None = None,
+) -> PlanResponse | OperationResult:
+    state = get_state(ctx)
+    params = {"uuid": uuid, "name": name}
+
+    async def build() -> PlanSpec:
+        fs = await rpc_call_ro(state, "FileSystemMgmt", "getList")
+        if isinstance(fs, dict):
+            rows = fs.get("data", [])
+            for row in rows if isinstance(rows, list) else []:
+                if isinstance(row, dict) and row.get("uuid") == uuid and row.get("isroot"):
+                    raise SafetyError("refusing to snapshot the root filesystem")
+        return PlanSpec(
+            rpc_calls=[{"service": "ShareMgmt", "method": "createSnapshot", "params": params}],
+            before=await rpc_call_ro(state, "ShareMgmt", "get", {"uuid": uuid}),
+            after={"name": name, "uuid": uuid},
+            changes=[{"field": "snapshot", "before": None, "after": name}],
+            modules_expected={"shares"},
+        )
+
+    async def execute(plan: PlanSpec) -> ExecutionOutcome:
+        return ExecutionOutcome(
+            result=await state.backend.call("ShareMgmt", "createSnapshot", params)
+        )
+
+    return await guarded_write(
+        ctx=ctx,
+        tool="snapshot_create",
+        tier=Tier.OPERATOR,
+        args={"uuid": uuid, "name": name, "apply": apply},
+        build=build,
+        execute=execute,
+        confirm_token=confirm_token,
+        apply=apply,
+    )
+
+
+async def smb_settings(ctx: Context) -> Any:
+    state = get_state(ctx)
+    return redact(
+        {
+            "settings": await rpc_call_ro(state, "SMB", "getSettings"),
+            "stats": await rpc_call_ro(state, "SMB", "getStats"),
+        }
+    )
+
+
+async def smb_shares_list(
+    ctx: Context,
+    limit: int = 50,
+    offset: int = 0,
+    search: str | None = None,
+    sort: str | None = None,
+    order: Literal["asc", "desc"] = "asc",
+    fields: list[str] | Literal["all"] | None = None,
+) -> Page[dict[str, Any]]:
+    return await list_call(
+        get_state(ctx),
+        "SMB",
+        "getShareList",
+        limit=limit,
+        offset=offset,
+        search=search,
+        sort=sort,
+        order=order,
+        fields=fields,
+        ctx=ctx,
+    )
+
+
+async def smb_share_get(ctx: Context, uuid: str) -> Any:
+    return redact(await rpc_call_ro(get_state(ctx), "SMB", "getShare", {"uuid": uuid}))
+
+
+async def smb_share_set(
+    ctx: Context,
+    name: str,
+    sharedfolderref: str,
+    uuid: str | None = None,
+    comment: str = "",
+    guest: Literal["no", "allow", "only"] = "no",
+    readonly: bool = False,
+    browseable: bool = True,
+    recyclebin: bool = False,
+    recyclemaxsize: int = 0,
+    recyclemaxage: int = 0,
+    hidedotfiles: bool = False,
+    inheritacls: bool = False,
+    inheritpermissions: bool = False,
+    easupport: bool = False,
+    storedosattributes: bool = False,
+    hostsallow: str = "",
+    hostsdeny: str = "",
+    audit: bool = False,
+    timemachine: bool = False,
+    enable: bool = True,
+    extraoptions: str = "",
+    apply: bool = False,
+    confirm_token: str | None = None,
+) -> PlanResponse | OperationResult:
+    state = get_state(ctx)
+    params: dict[str, Any] = {
+        "uuid": uuid or NEW_UUID,
+        "sharedfolderref": sharedfolderref,
+        "comment": comment,
+        "guest": guest,
+        "readonly": readonly,
+        "browseable": browseable,
+        "recyclebin": recyclebin,
+        "recyclemaxsize": recyclemaxsize,
+        "recyclemaxage": recyclemaxage,
+        "hidedotfiles": hidedotfiles,
+        "inheritacls": inheritacls,
+        "inheritpermissions": inheritpermissions,
+        "easupport": easupport,
+        "storedosattributes": storedosattributes,
+        "hostsallow": hostsallow,
+        "hostsdeny": hostsdeny,
+        "audit": audit,
+        "timemachine": timemachine,
+        "enable": enable,
+        "extraoptions": extraoptions,
+    }
+
+    async def build() -> PlanSpec:
+        before = None
+        if uuid:
+            before = await rpc_call_ro(state, "SMB", "getShare", {"uuid": uuid})
+            if isinstance(before, dict):
+                params.update({k: v for k, v in before.items() if k not in params or k == "name"})
+                params.update(
+                    {
+                        "sharedfolderref": sharedfolderref,
+                        "comment": comment,
+                        "guest": guest,
+                        "readonly": readonly,
+                        "browseable": browseable,
+                        "recyclebin": recyclebin,
+                        "enable": enable,
+                        "extraoptions": extraoptions,
+                    }
+                )
+        return PlanSpec(
+            rpc_calls=[{"service": "SMB", "method": "setShare", "params": params}],
+            before=before,
+            after={"name": name, "sharedfolderref": sharedfolderref},
+            changes=[{"field": "name", "before": (before or {}).get("name"), "after": name}],
+        )
+
+    async def execute(plan: PlanSpec) -> ExecutionOutcome:
+        return ExecutionOutcome(result=await state.backend.call("SMB", "setShare", params))
+
+    return await guarded_write(
+        ctx=ctx,
+        tool="smb_share_set",
+        tier=Tier.OPERATOR,
+        args=dict(params, apply=apply),
+        build=build,
+        execute=execute,
+        confirm_token=confirm_token,
+        apply=apply,
+    )
+
+
+async def smb_share_delete(
+    ctx: Context, uuid: str, apply: bool = False, confirm_token: str | None = None
+) -> PlanResponse | OperationResult:
+    state = get_state(ctx)
+
+    async def build() -> PlanSpec:
+        return PlanSpec(
+            rpc_calls=[{"service": "SMB", "method": "deleteShare", "params": {"uuid": uuid}}],
+            before=await rpc_call_ro(state, "SMB", "getShare", {"uuid": uuid}),
+            after=None,
+            changes=[{"field": "uuid", "before": uuid, "after": None}],
+        )
+
+    async def execute(plan: PlanSpec) -> ExecutionOutcome:
+        return ExecutionOutcome(
+            result=await state.backend.call("SMB", "deleteShare", {"uuid": uuid})
+        )
+
+    return await guarded_write(
+        ctx=ctx,
+        tool="smb_share_delete",
+        tier=Tier.OPERATOR,
+        args={"uuid": uuid, "apply": apply},
+        build=build,
+        execute=execute,
+        confirm_token=confirm_token,
+        apply=apply,
+    )
+
+
+async def nfs_settings(ctx: Context) -> Any:
+    state = get_state(ctx)
+    return redact(
+        {
+            "settings": await rpc_call_ro(state, "NFS", "getSettings"),
+            "stats": await rpc_call_ro(state, "NFS", "getStats"),
+        }
+    )
+
+
+async def nfs_shares_list(
+    ctx: Context,
+    limit: int = 50,
+    offset: int = 0,
+    search: str | None = None,
+    sort: str | None = None,
+    order: Literal["asc", "desc"] = "asc",
+    fields: list[str] | Literal["all"] | None = None,
+) -> Page[dict[str, Any]]:
+    return await list_call(
+        get_state(ctx),
+        "NFS",
+        "getShareList",
+        limit=limit,
+        offset=offset,
+        search=search,
+        sort=sort,
+        order=order,
+        fields=fields,
+        ctx=ctx,
+    )
+
+
+async def nfs_share_get(ctx: Context, uuid: str) -> Any:
+    return redact(await rpc_call_ro(get_state(ctx), "NFS", "getShare", {"uuid": uuid}))
+
+
+async def nfs_share_set(
+    ctx: Context,
+    sharedfolderref: str,
+    mntentref: str,
+    client: str = "*",
+    options: str = "rw",
+    uuid: str | None = None,
+    comment: str = "",
+    extraoptions: str = "sec=sys",
+    apply: bool = False,
+    confirm_token: str | None = None,
+) -> PlanResponse | OperationResult:
+    state = get_state(ctx)
+    params = {
+        "uuid": uuid or NEW_UUID,
+        "sharedfolderref": sharedfolderref,
+        "mntentref": mntentref,
+        "client": client,
+        "options": options,
+        "comment": comment,
+        "extraoptions": extraoptions,
+    }
+
+    async def build() -> PlanSpec:
+        before = (
+            await rpc_call_ro(state, "NFS", "getShare", {"uuid": params["uuid"]}) if uuid else None
+        )
+        return PlanSpec(
+            rpc_calls=[{"service": "NFS", "method": "setShare", "params": params}],
+            before=before,
+            after={"sharedfolderref": sharedfolderref, "client": client},
+            changes=[{"field": "client", "before": (before or {}).get("client"), "after": client}],
+        )
+
+    async def execute(plan: PlanSpec) -> ExecutionOutcome:
+        return ExecutionOutcome(result=await state.backend.call("NFS", "setShare", params))
+
+    return await guarded_write(
+        ctx=ctx,
+        tool="nfs_share_set",
+        tier=Tier.OPERATOR,
+        args=dict(params, apply=apply),
+        build=build,
+        execute=execute,
+        confirm_token=confirm_token,
+        apply=apply,
+    )
+
+
+async def nfs_share_delete(
+    ctx: Context, uuid: str, apply: bool = False, confirm_token: str | None = None
+) -> PlanResponse | OperationResult:
+    state = get_state(ctx)
+
+    async def build() -> PlanSpec:
+        return PlanSpec(
+            rpc_calls=[{"service": "NFS", "method": "deleteShare", "params": {"uuid": uuid}}],
+            before=await rpc_call_ro(state, "NFS", "getShare", {"uuid": uuid}),
+            after=None,
+            changes=[{"field": "uuid", "before": uuid, "after": None}],
+        )
+
+    async def execute(plan: PlanSpec) -> ExecutionOutcome:
+        return ExecutionOutcome(
+            result=await state.backend.call("NFS", "deleteShare", {"uuid": uuid})
+        )
+
+    return await guarded_write(
+        ctx=ctx,
+        tool="nfs_share_delete",
+        tier=Tier.OPERATOR,
+        args={"uuid": uuid, "apply": apply},
+        build=build,
+        execute=execute,
+        confirm_token=confirm_token,
+        apply=apply,
+    )
+
+
+async def rsyncd_settings(ctx: Context) -> Any:
+    return redact(await rpc_call_ro(get_state(ctx), "Rsyncd", "getSettings"))
+
+
+async def rsyncd_modules_list(
+    ctx: Context,
+    limit: int = 50,
+    offset: int = 0,
+    search: str | None = None,
+    sort: str | None = None,
+    order: Literal["asc", "desc"] = "asc",
+    fields: list[str] | Literal["all"] | None = None,
+) -> Page[dict[str, Any]]:
+    return await list_call(
+        get_state(ctx),
+        "Rsyncd",
+        "getModuleList",
+        limit=limit,
+        offset=offset,
+        search=search,
+        sort=sort,
+        order=order,
+        fields=fields,
+        ctx=ctx,
+    )
+
+
+async def rsyncd_module_get(ctx: Context, uuid: str) -> Any:
+    return redact(await rpc_call_ro(get_state(ctx), "Rsyncd", "getModule", {"uuid": uuid}))
+
+
+async def rsyncd_module_set(
+    ctx: Context,
+    name: str,
+    sharedfolderref: str,
+    uuid: str | None = None,
+    comment: str = "",
+    uid: str = "root",
+    gid: str = "users",
+    readonly: bool = True,
+    writeonly: bool = False,
+    maxconnections: int = 0,
+    list: bool = True,
+    hostsallow: str = "",
+    hostsdeny: str = "",
+    authusers: bool = False,
+    usechroot: bool = True,
+    users: list[dict[str, str]] | None = None,
+    extraoptions: str = "",
+    enable: bool = True,
+    apply: bool = False,
+    confirm_token: str | None = None,
+) -> PlanResponse | OperationResult:
+    state = get_state(ctx)
+    params: dict[str, Any] = {
+        "uuid": uuid or NEW_UUID,
+        "sharedfolderref": sharedfolderref,
+        "name": name,
+        "comment": comment,
+        "uid": uid,
+        "gid": gid,
+        "readonly": readonly,
+        "writeonly": writeonly,
+        "maxconnections": maxconnections,
+        "list": list,
+        "hostsallow": hostsallow,
+        "hostsdeny": hostsdeny,
+        "authusers": authusers,
+        "usechroot": usechroot,
+        "users": users or [],
+        "extraoptions": extraoptions,
+        "enable": enable,
+    }
+
+    async def build() -> PlanSpec:
+        before = (
+            await rpc_call_ro(state, "Rsyncd", "getModule", {"uuid": params["uuid"]})
+            if uuid
+            else None
+        )
+        if isinstance(before, dict):
+            params.update({k: v for k, v in before.items() if k not in params})
+        return PlanSpec(
+            rpc_calls=[{"service": "Rsyncd", "method": "setModule", "params": params}],
+            before=before,
+            after={"sharedfolderref": sharedfolderref},
+            changes=[
+                {
+                    "field": "sharedfolderref",
+                    "before": (before or {}).get("sharedfolderref"),
+                    "after": sharedfolderref,
+                }
+            ],
+        )
+
+    async def execute(plan: PlanSpec) -> ExecutionOutcome:
+        return ExecutionOutcome(result=await state.backend.call("Rsyncd", "setModule", params))
+
+    return await guarded_write(
+        ctx=ctx,
+        tool="rsyncd_module_set",
+        tier=Tier.OPERATOR,
+        args=dict(params, apply=apply),
+        build=build,
+        execute=execute,
+        confirm_token=confirm_token,
+        apply=apply,
+    )
+
+
+async def rsyncd_module_delete(
+    ctx: Context, uuid: str, apply: bool = False, confirm_token: str | None = None
+) -> PlanResponse | OperationResult:
+    state = get_state(ctx)
+
+    async def build() -> PlanSpec:
+        return PlanSpec(
+            rpc_calls=[{"service": "Rsyncd", "method": "deleteModule", "params": {"uuid": uuid}}],
+            before=await rpc_call_ro(state, "Rsyncd", "getModule", {"uuid": uuid}),
+            after=None,
+            changes=[{"field": "uuid", "before": uuid, "after": None}],
+        )
+
+    async def execute(plan: PlanSpec) -> ExecutionOutcome:
+        return ExecutionOutcome(
+            result=await state.backend.call("Rsyncd", "deleteModule", {"uuid": uuid})
+        )
+
+    return await guarded_write(
+        ctx=ctx,
+        tool="rsyncd_module_delete",
+        tier=Tier.OPERATOR,
+        args={"uuid": uuid, "apply": apply},
+        build=build,
+        execute=execute,
+        confirm_token=confirm_token,
+        apply=apply,
+    )
+
+
+async def ssh_settings(ctx: Context) -> Any:
+    state = get_state(ctx)
+    return redact(
+        {
+            "settings": await rpc_call_ro(state, "SSH", "get"),
+            "stats": await rpc_call_ro(state, "SSH", "getStats"),
+        }
+    )
+
+
+async def users_list(
+    ctx: Context,
+    limit: int = 50,
+    offset: int = 0,
+    search: str | None = None,
+    sort: str | None = None,
+    order: Literal["asc", "desc"] = "asc",
+    fields: list[str] | Literal["all"] | None = None,
+) -> Page[dict[str, Any]]:
+    return await list_call(
+        get_state(ctx),
+        "UserMgmt",
+        "getUserList",
+        limit=limit,
+        offset=offset,
+        search=search,
+        sort=sort,
+        order=order,
+        fields=fields or ["name", "comment", "uid", "gid", "groups", "email", "disabled"],
+        ctx=ctx,
+    )
+
+
+async def user_get(ctx: Context, name: str) -> Any:
+    return redact(await rpc_call_ro(get_state(ctx), "UserMgmt", "getUser", {"name": name}))
+
+
+async def groups_list(
+    ctx: Context,
+    limit: int = 50,
+    offset: int = 0,
+    search: str | None = None,
+    sort: str | None = None,
+    order: Literal["asc", "desc"] = "asc",
+    fields: list[str] | Literal["all"] | None = None,
+) -> Page[dict[str, Any]]:
+    return await list_call(
+        get_state(ctx),
+        "UserMgmt",
+        "getGroupList",
+        limit=limit,
+        offset=offset,
+        search=search,
+        sort=sort,
+        order=order,
+        fields=fields or ["name", "comment", "gid", "members"],
+        ctx=ctx,
+    )
+
+
+async def group_get(ctx: Context, name: str) -> Any:
+    return redact(await rpc_call_ro(get_state(ctx), "UserMgmt", "getGroup", {"name": name}))
+
+
+async def user_set(
+    ctx: Context,
+    name: str,
+    comment: str | None = None,
+    email: str | None = None,
+    groups: list[str] | None = None,
+    shell: str | None = None,
+    uid: int | None = None,
+    password: SecretStr | None = None,
+    disallowusermod: bool | None = None,
+    sshpubkeys: list[str] | None = None,
+    apply: bool = False,
+    confirm_token: str | None = None,
+) -> PlanResponse | OperationResult:
+    state = get_state(ctx)
+    params: dict[str, Any] = {
+        "name": name,
+        "groups": [],
+        "password": "",
+        "email": "",
+        "disallowusermod": False,
+        "sshpubkeys": [],
+    }
+    for key, value in (
+        ("comment", comment),
+        ("email", email),
+        ("groups", groups),
+        ("shell", shell),
+        ("uid", uid),
+        ("disallowusermod", disallowusermod),
+        ("sshpubkeys", sshpubkeys),
+    ):
+        if value is not None:
+            params[key] = value
+    if password is not None:
+        params["password"] = password.get_secret_value()
+
+    async def build() -> PlanSpec:
+        before: dict[str, Any] | None = None
+        with contextlib.suppress(Exception):
+            loaded = await rpc_call_ro(state, "UserMgmt", "getUser", {"name": name})
+            before = loaded if isinstance(loaded, dict) else None
+        if before:
+            params.update({k: v for k, v in before.items() if k not in params})
+        return PlanSpec(
+            rpc_calls=[{"service": "UserMgmt", "method": "setUser", "params": params}],
+            before=before,
+            after={k: v for k, v in params.items() if k != "password"},
+            changes=[
+                {"field": k, "before": (before or {}).get(k), "after": v}
+                for k, v in params.items()
+                if k != "password"
+            ],
+            modules_expected={"user"},
+        )
+
+    async def execute(plan: PlanSpec) -> ExecutionOutcome:
+        return ExecutionOutcome(result=await state.backend.call("UserMgmt", "setUser", params))
+
+    return await guarded_write(
+        ctx=ctx,
+        tool="user_set",
+        tier=Tier.OPERATOR,
+        args=dict(params, apply=apply),
+        build=build,
+        execute=execute,
+        confirm_token=confirm_token,
+        apply=apply,
+    )
+
+
+async def group_set(
+    ctx: Context,
+    name: str,
+    comment: str | None = None,
+    members: list[str] | None = None,
+    apply: bool = False,
+    confirm_token: str | None = None,
+) -> PlanResponse | OperationResult:
+    state = get_state(ctx)
+    params: dict[str, Any] = {
+        "name": name,
+        "comment": comment or "",
+        "members": members or [],
+    }
+
+    async def build() -> PlanSpec:
+        before: dict[str, Any] | None = None
+        with contextlib.suppress(Exception):
+            loaded = await rpc_call_ro(state, "UserMgmt", "getGroup", {"name": name})
+            before = loaded if isinstance(loaded, dict) else None
+        if before:
+            params.update({k: v for k, v in before.items() if k not in params})
+        return PlanSpec(
+            rpc_calls=[{"service": "UserMgmt", "method": "setGroup", "params": params}],
+            before=before,
+            after={"name": name, "comment": comment, "members": members},
+            changes=[
+                {"field": k, "before": (before or {}).get(k), "after": v} for k, v in params.items()
+            ],
+            modules_expected={"user"},
+        )
+
+    async def execute(plan: PlanSpec) -> ExecutionOutcome:
+        return ExecutionOutcome(result=await state.backend.call("UserMgmt", "setGroup", params))
+
+    return await guarded_write(
+        ctx=ctx,
+        tool="group_set",
+        tier=Tier.OPERATOR,
+        args=dict(params, apply=apply),
+        build=build,
+        execute=execute,
+        confirm_token=confirm_token,
+        apply=apply,
+    )
+
+
+async def user_delete(
+    ctx: Context, name: str, confirm_token: str | None = None
+) -> PlanResponse | OperationResult:
+    state = get_state(ctx)
+
+    async def build() -> PlanSpec:
+        check_protected_user(name, state.settings.protected_users)
+        return PlanSpec(
+            rpc_calls=[{"service": "UserMgmt", "method": "deleteUser", "params": {"name": name}}],
+            before=await rpc_call_ro(state, "UserMgmt", "getUser", {"name": name}),
+            after=None,
+            changes=[{"field": "name", "before": name, "after": None}],
+        )
+
+    async def execute(plan: PlanSpec) -> ExecutionOutcome:
+        return ExecutionOutcome(
+            result=await state.backend.call("UserMgmt", "deleteUser", {"name": name})
+        )
+
+    return await guarded_write(
+        ctx=ctx,
+        tool="user_delete",
+        tier=Tier.ADMIN,
+        args={"name": name},
+        build=build,
+        execute=execute,
+        confirm_token=confirm_token,
+    )
+
+
+async def group_delete(
+    ctx: Context, name: str, confirm_token: str | None = None
+) -> PlanResponse | OperationResult:
+    state = get_state(ctx)
+
+    async def build() -> PlanSpec:
+        check_protected_group(name, state.settings.protected_groups)
+        return PlanSpec(
+            rpc_calls=[{"service": "UserMgmt", "method": "deleteGroup", "params": {"name": name}}],
+            before=await rpc_call_ro(state, "UserMgmt", "getGroup", {"name": name}),
+            after=None,
+            changes=[{"field": "name", "before": name, "after": None}],
+        )
+
+    async def execute(plan: PlanSpec) -> ExecutionOutcome:
+        return ExecutionOutcome(
+            result=await state.backend.call("UserMgmt", "deleteGroup", {"name": name})
+        )
+
+    return await guarded_write(
+        ctx=ctx,
+        tool="group_delete",
+        tier=Tier.ADMIN,
+        args={"name": name},
+        build=build,
+        execute=execute,
+        confirm_token=confirm_token,
+    )
+
+
+TOOLS = (
+    ro("shared_folders_list", shared_folders_list, "List shared folders.", "ShareMgmt.getList"),
+    ro(
+        "shared_folder_get",
+        shared_folder_get,
+        "Return a shared folder and its path.",
+        "ShareMgmt.get",
+        "ShareMgmt.getPath",
+    ),
+    ro(
+        "shared_folder_candidates",
+        shared_folder_candidates,
+        "List filesystems that can host shared folders.",
+        "ShareMgmt.getCandidates",
+    ),
+    op("shared_folder_create", shared_folder_create, "Create a shared folder.", "ShareMgmt.set"),
+    admin(
+        "shared_folder_delete",
+        shared_folder_delete,
+        "Delete a shared folder if unreferenced.",
+        "ShareMgmt.delete",
+        destructive=True,
+    ),
+    ro(
+        "shared_folder_privileges_get",
+        shared_folder_privileges_get,
+        "Return shared-folder privileges.",
+        "ShareMgmt.getPrivileges",
+        "ShareMgmt.getPrivilegesByRole",
+    ),
+    op(
+        "shared_folder_privileges_set",
+        shared_folder_privileges_set,
+        "Set shared-folder privileges.",
+        "ShareMgmt.setPrivileges",
+    ),
+    ro("shared_folder_acl_get", shared_folder_acl_get, "Return file ACLs.", "ShareMgmt.getFileACL"),
+    ro("snapshots_list", snapshots_list, "List snapshots.", "ShareMgmt.enumerateAllSnapshots"),
+    op("snapshot_create", snapshot_create, "Create a btrfs snapshot.", "ShareMgmt.createSnapshot"),
+    ro("smb_settings", smb_settings, "Return SMB settings.", "SMB.getSettings", "SMB.getStats"),
+    ro("smb_shares_list", smb_shares_list, "List SMB shares.", "SMB.getShareList"),
+    ro("smb_share_get", smb_share_get, "Return an SMB share.", "SMB.getShare"),
+    op("smb_share_set", smb_share_set, "Create or update an SMB share.", "SMB.setShare"),
+    op("smb_share_delete", smb_share_delete, "Delete an SMB share.", "SMB.deleteShare"),
+    ro("nfs_settings", nfs_settings, "Return NFS settings.", "NFS.getSettings", "NFS.getStats"),
+    ro("nfs_shares_list", nfs_shares_list, "List NFS shares.", "NFS.getShareList"),
+    ro("nfs_share_get", nfs_share_get, "Return an NFS share.", "NFS.getShare"),
+    op("nfs_share_set", nfs_share_set, "Create or update an NFS share.", "NFS.setShare"),
+    op("nfs_share_delete", nfs_share_delete, "Delete an NFS share.", "NFS.deleteShare"),
+    ro("rsyncd_settings", rsyncd_settings, "Return rsyncd settings.", "Rsyncd.getSettings"),
+    ro("rsyncd_modules_list", rsyncd_modules_list, "List rsyncd modules.", "Rsyncd.getModuleList"),
+    ro("rsyncd_module_get", rsyncd_module_get, "Return an rsyncd module.", "Rsyncd.getModule"),
+    op(
+        "rsyncd_module_set",
+        rsyncd_module_set,
+        "Create or update an rsyncd module.",
+        "Rsyncd.setModule",
+    ),
+    op(
+        "rsyncd_module_delete",
+        rsyncd_module_delete,
+        "Delete an rsyncd module.",
+        "Rsyncd.deleteModule",
+    ),
+    ro(
+        "ssh_settings",
+        ssh_settings,
+        "Return SSH settings, public keys only.",
+        "SSH.get",
+        "SSH.getStats",
+    ),
+    ro("users_list", users_list, "List users.", "UserMgmt.getUserList"),
+    ro("user_get", user_get, "Return a user.", "UserMgmt.getUser"),
+    ro("groups_list", groups_list, "List groups.", "UserMgmt.getGroupList"),
+    ro("group_get", group_get, "Return a group.", "UserMgmt.getGroup"),
+    op("user_set", user_set, "Create or update a user.", "UserMgmt.setUser"),
+    op("group_set", group_set, "Create or update a group.", "UserMgmt.setGroup"),
+    admin("user_delete", user_delete, "Delete a user.", "UserMgmt.deleteUser", destructive=True),
+    admin(
+        "group_delete", group_delete, "Delete a group.", "UserMgmt.deleteGroup", destructive=True
+    ),
+)

@@ -51,6 +51,8 @@ class JobRunner:
         )
         if not isinstance(result, dict):
             raise OmvRpcError(f"Exec.getOutput returned {type(result).__name__}")
+        if "pendingOutput" in result and "pending_output" not in result:
+            result["pending_output"] = result["pendingOutput"]
         return result
 
     async def status(self, filename: str) -> bool:

@@ -123,7 +123,7 @@ class SshBackend:
         for attempt in range(2):
             try:
                 conn = await self._ensure_connection()
-                return await conn.run(command, check=False, timeout=timeout)
+                return await conn.run(command, check=False, timeout=timeout, encoding=None)
             except (asyncssh.Error, OSError, ConnectionError) as exc:
                 last_error = exc
                 await self._discard()

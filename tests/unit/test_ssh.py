@@ -26,7 +26,12 @@ class Conn:
         self.closed = False
 
     async def run(
-        self, command: str, *, check: bool = False, timeout: float | None = None
+        self,
+        command: str,
+        *,
+        check: bool = False,
+        timeout: float | None = None,
+        encoding: str | None = None,
     ) -> Result:
         self.commands.append(command)
         result = self.results.pop(0)
@@ -95,7 +100,13 @@ async def test_error_json_on_stdout(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 async def test_non_json_and_empty(monkeypatch: pytest.MonkeyPatch) -> None:
-    conn = Conn([Result(b"", b"permission denied\n", 255), Result(b"")])
+    conn = Conn(
+        [
+            Result(b"", b"permission denied\n", 255),
+            Result(b""),
+            Result(b"", b"boom\n", 2),
+        ]
+    )
 
     async def connect(**kwargs: Any) -> Conn:
         return conn
@@ -104,7 +115,8 @@ async def test_non_json_and_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     backend = SshBackend(settings(monkeypatch))
     with pytest.raises(OmvRpcError, match="permission denied"):
         await backend.call("A", "b")
-    with pytest.raises(OmvRpcError, match="empty output"):
+    assert await backend.call("A", "b") is None
+    with pytest.raises(OmvRpcError, match="boom"):
         await backend.call("A", "b")
 
 
