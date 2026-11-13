@@ -1,7 +1,7 @@
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := check
 
-.PHONY: install lint format typecheck test check docs \
+.PHONY: install lint format typecheck test check docs docs-check \
 	testenv-build testenv-provision testenv-up testenv-reset testenv-down \
 	testenv-snapshot testenv-ssh testenv-destroy testenv-capture testenv-wait
 
@@ -21,10 +21,13 @@ typecheck:
 test:
 	uv run pytest
 
-check: lint typecheck test
+check: lint typecheck test docs-check
 
 docs:
 	uv run python scripts/gen_tools_doc.py
+
+docs-check:
+	uv run python scripts/gen_tools_doc.py --check
 
 testenv-build:
 	cd testenv && docker compose build && docker compose run --rm --entrypoint /usr/local/bin/build.sh omv-test
@@ -35,9 +38,10 @@ testenv-provision:
 	$(MAKE) testenv-build
 	cd testenv && PROVISION=1 docker compose up -d
 	$(MAKE) testenv-wait
-	uv run python -m testenv.seed
 	cd testenv && ssh -p 2222 -i .state/id_ed25519 -o UserKnownHostsFile=.state/known_hosts -o StrictHostKeyChecking=yes root@127.0.0.1 'cat /root/versions.txt' > .state/versions.txt
+	uv run python -m testenv.seed
 	cd testenv && docker compose down
+	chmod 0444 testenv/.state/base/*.qcow2
 	cd testenv && touch .state/base/PROVISIONED
 
 testenv-wait:

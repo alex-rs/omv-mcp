@@ -66,7 +66,7 @@ class Seed:
         info = await self.call("System", "getInformation")
         value = info.get("dirtyModules", []) if isinstance(info, dict) else []
         if isinstance(value, dict):
-            return sorted(str(key) for key, item in value.items() if item)
+            return sorted(str(key) for key in value)
         return sorted(str(item) for item in value)
 
     async def run_job(self, service: str, method: str, params: dict[str, Any]) -> Any:
