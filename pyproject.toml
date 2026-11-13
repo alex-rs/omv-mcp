@@ -1,0 +1,59 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "omv-mcp"
+version = "0.1.0"
+description = "Safe MCP server for administering OpenMediaVault 8"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+license = { text = "MIT" }
+authors = [{ name = "omv-mcp maintainers" }]
+dependencies = [
+  "fastmcp==4.2.0",
+  "mcp==2.3.0",
+  "httpx>=0.27",
+  "asyncssh>=2.16",
+  "pydantic>=2.8",
+  "pydantic-settings>=2.4",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "pytest-asyncio>=0.24",
+  "respx>=0.21",
+  "ruff>=0.6",
+  "mypy>=1.11",
+]
+
+[project.scripts]
+omv-mcp = "omv_mcp.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/omv_mcp"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/omv_mcp/schemas" = "omv_mcp/schemas"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-m 'not integration'"
+markers = ["integration: requires the disposable OMV test VM"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "RUF"]
+ignore = ["E501", "ASYNC109", "UP042"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["omv_mcp"]
+mypy_path = "src"
+warn_unreachable = true
