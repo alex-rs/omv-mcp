@@ -1,0 +1,194 @@
+{
+  "total": 9,
+  "data": [
+    {
+      "uuid": "b29d29e4-3415-466b-a2ca-99726253a21b",
+      "name": "compose-files",
+      "comment": "",
+      "mntentref": "8f8bcdee-ec0c-4c5c-a998-206569c37e4d",
+      "reldirpath": "compose-files/",
+      "privileges": "",
+      "_used": true,
+      "device": "/dev/sdf1",
+      "description": "compose-files [on /dev/sdf1, compose-files/]",
+      "mntent": {
+        "devicefile": "/dev/sdf1",
+        "fsname": "/dev/disk/by-uuid/efd0be24-7df9-4ff9-989b-40da1baee67e",
+        "dir": "/srv/dev-disk-by-uuid-efd0be24-7df9-4ff9-989b-40da1baee67e",
+        "type": "ext4",
+        "posixacl": true
+      },
+      "snapshots": false,
+      "absdirpath": "/srv/dev-disk-by-uuid-efd0be24-7df9-4ff9-989b-40da1baee67e/compose-files/",
+      "status": "OK"
+    },
+    {
+      "uuid": "50628ba7-7c2d-45a0-b2e8-91c01cee47fc",
+      "name": "docker-data",
+      "comment": "",
+      "mntentref": "8f8bcdee-ec0c-4c5c-a998-206569c37e4d",
+      "reldirpath": "docker-data/",
+      "privileges": "",
+      "_used": true,
+      "device": "/dev/sdf1",
+      "description": "docker-data [on /dev/sdf1, docker-data/]",
+      "mntent": {
+        "devicefile": "/dev/sdf1",
+        "fsname": "/dev/disk/by-uuid/efd0be24-7df9-4ff9-989b-40da1baee67e",
+        "dir": "/srv/dev-disk-by-uuid-efd0be24-7df9-4ff9-989b-40da1baee67e",
+        "type": "ext4",
+        "posixacl": true
+      },
+      "snapshots": false,
+      "absdirpath": "/srv/dev-disk-by-uuid-efd0be24-7df9-4ff9-989b-40da1baee67e/docker-data/",
+      "status": "OK"
+    },
+    {
+      "uuid": "3e1353b7-a071-436c-adeb-e9d1c9d830f1",
+      "name": "compose-backup",
+      "comment": "",
+      "mntentref": "4c7e5d95-64ba-45b7-888e-694139131fb8",
+      "reldirpath": "compose-backup/",
+      "privileges": "",
+      "_used": true,
+      "device": "/dev/sda1",
+      "description": "compose-backup [on /dev/sda1, compose-backup/]",
+      "mntent": {
+        "devicefile": "/dev/sda1",
+        "fsname": "/dev/disk/by-uuid/4cebacb8-df57-4bb5-9d4b-ae3490e4b2e7",
+        "dir": "/srv/dev-disk-by-uuid-4cebacb8-df57-4bb5-9d4b-ae3490e4b2e7",
+        "type": "ext4",
+        "posixacl": true
+      },
+      "snapshots": false,
+      "absdirpath": "/srv/dev-disk-by-uuid-4cebacb8-df57-4bb5-9d4b-ae3490e4b2e7/compose-backup/",
+      "status": "OK"
+    },
+    {
+      "uuid": "2fcb854c-66f6-4b71-911c-bd7873f68989",
+      "name": "downloads",
+      "comment": "",
+      "mntentref": "7298625f-fdfc-406c-9802-75d310d6620a",
+      "reldirpath": "downloads/",
+      "privileges": "",
+      "_used": false,
+      "device": "/dev/sdb1",
+      "description": "downloads [on /dev/sdb1, downloads/]",
+      "mntent": {
+        "devicefile": "/dev/sdb1",
+        "fsname": "/dev/disk/by-uuid/1c3117db-ca4d-4b45-9301-ee53459a2a11",
+        "dir": "/srv/dev-disk-by-uuid-1c3117db-ca4d-4b45-9301-ee53459a2a11",
+        "type": "ext4",
+        "posixacl": true
+      },
+      "snapshots": false,
+      "absdirpath": "/srv/dev-disk-by-uuid-1c3117db-ca4d-4b45-9301-ee53459a2a11/downloads/",
+      "status": "OK"
+    },
+    {
+      "uuid": "583b3a2f-c81c-4747-9eed-d9f333d86231",
+      "name": "music",
+      "comment": "",
+      "mntentref": "7298625f-fdfc-406c-9802-75d310d6620a",
+      "reldirpath": "music/",
+      "privileges": "",
+      "_used": false,
+      "device": "/dev/sdb1",
+      "description": "music [on /dev/sdb1, music/]",
+      "mntent": {
+        "devicefile": "/dev/sdb1",
+        "fsname": "/dev/disk/by-uuid/1c3117db-ca4d-4b45-9301-ee53459a2a11",
+        "dir": "/srv/dev-disk-by-uuid-1c3117db-ca4d-4b45-9301-ee53459a2a11",
+        "type": "ext4",
+        "posixacl": true
+      },
+      "snapshots": false,
+      "absdirpath": "/srv/dev-disk-by-uuid-1c3117db-ca4d-4b45-9301-ee53459a2a11/music/",
+      "status": "OK"
+    },
+    {
+      "uuid": "66b4943f-59be-4e60-ac7d-51918355dcc2",
+      "name": "recordings",
+      "comment": "",
+      "mntentref": "4baaf731-f8ff-439e-aea2-e90429b1c13c",
+      "reldirpath": "recordings/",
+      "privileges": "",
+      "_used": false,
+      "device": "/dev/nvme0n1p1",
+      "description": "recordings [on /dev/nvme0n1p1, recordings/]",
+      "mntent": {
+        "devicefile": "/dev/nvme0n1p1",
+        "fsname": "/dev/disk/by-uuid/1d10d02e-42af-4a95-9b3f-de7eef3683dc",
+        "dir": "/srv/dev-disk-by-uuid-1d10d02e-42af-4a95-9b3f-de7eef3683dc",
+        "type": "ext4",
+        "posixacl": true
+      },
+      "snapshots": false,
+      "absdirpath": "/srv/dev-disk-by-uuid-1d10d02e-42af-4a95-9b3f-de7eef3683dc/recordings/",
+      "status": "OK"
+    },
+    {
+      "uuid": "843cd78e-6b02-46d3-8c81-67d530706675",
+      "name": "pool-backup",
+      "comment": "",
+      "mntentref": "50ee0deb-fe19-4358-8f7c-35f62fdf554e",
+      "reldirpath": "pool-backup/",
+      "privileges": "",
+      "_used": false,
+      "device": "168b579c-d7ee-4572-90bd-42422577c9d1",
+      "description": "pool-backup [on 168b579c-d7ee-4572-90bd-42422577c9d1, pool-backup/]",
+      "mntent": {
+        "devicefile": "",
+        "fsname": "168b579c-d7ee-4572-90bd-42422577c9d1",
+        "dir": "/srv/mergerfs/pool",
+        "type": "fuse.mergerfs",
+        "posixacl": true
+      },
+      "snapshots": false,
+      "absdirpath": "/srv/mergerfs/pool/pool-backup/",
+      "status": "OK"
+    },
+    {
+      "uuid": "a3eabe6a-964b-42e0-b93c-823bd6d5dbc1",
+      "name": "media",
+      "comment": "",
+      "mntentref": "50ee0deb-fe19-4358-8f7c-35f62fdf554e",
+      "reldirpath": "media/",
+      "privileges": "",
+      "_used": false,
+      "device": "168b579c-d7ee-4572-90bd-42422577c9d1",
+      "description": "media [on 168b579c-d7ee-4572-90bd-42422577c9d1, media/]",
+      "mntent": {
+        "devicefile": "",
+        "fsname": "168b579c-d7ee-4572-90bd-42422577c9d1",
+        "dir": "/srv/mergerfs/pool",
+        "type": "fuse.mergerfs",
+        "posixacl": true
+      },
+      "snapshots": false,
+      "absdirpath": "/srv/mergerfs/pool/media/",
+      "status": "OK"
+    },
+    {
+      "uuid": "34fcb75d-b466-4c2c-aea0-5cb7c3314679",
+      "name": "archive",
+      "comment": "",
+      "mntentref": "50ee0deb-fe19-4358-8f7c-35f62fdf554e",
+      "reldirpath": "archive/",
+      "privileges": "",
+      "_used": false,
+      "device": "168b579c-d7ee-4572-90bd-42422577c9d1",
+      "description": "archive [on 168b579c-d7ee-4572-90bd-42422577c9d1, archive/]",
+      "mntent": {
+        "devicefile": "",
+        "fsname": "168b579c-d7ee-4572-90bd-42422577c9d1",
+        "dir": "/srv/mergerfs/pool",
+        "type": "fuse.mergerfs",
+        "posixacl": true
+      },
+      "snapshots": false,
+      "absdirpath": "/srv/mergerfs/pool/archive/",
+      "status": "OK"
+    }
+  ]
+}

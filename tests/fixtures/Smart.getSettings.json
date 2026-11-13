@@ -1,0 +1,7 @@
+{
+  "enable": true,
+  "interval": 10,
+  "powermode": "standby",
+  "tempdiff": 2,
+  "tempmax": 60
+}

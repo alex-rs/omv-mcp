@@ -1,0 +1,160 @@
+{
+  "total": 7,
+  "data": [
+    {
+      "devicename": "nvme0n1",
+      "canonicaldevicefile": "/dev/nvme0n1",
+      "devicefile": "/dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_OMVTESTNVME1",
+      "devicelinks": [
+        "/dev/disk/by-diskseq/1",
+        "/dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_OMVTESTNVME1",
+        "/dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_OMVTESTNVME1_1",
+        "/dev/disk/by-id/nvme-nvme.1b36-4f4d56544553544e564d4531-51454d55204e564d65204374726c-00000001",
+        "/dev/disk/by-path/pci-0000:00:04.0-nvme-1"
+      ],
+      "model": "QEMU NVMe Ctrl",
+      "size": "6442450944",
+      "temperature": "50",
+      "description": "QEMU NVMe Ctrl [/dev/nvme0n1, 6.00 GiB]",
+      "vendor": "0x1b36",
+      "serialnumber": "OMVTESTNVME1",
+      "wwn": "nvme.1b36-4f4d56544553544e564d4531-51454d55204e564d65204374726c-00000001",
+      "overallstatus": "GOOD",
+      "uuid": "fa4b1c66-ef79-11e5-87a0-0002b3a176b4",
+      "monitor": false,
+      "_used": false
+    },
+    {
+      "devicename": "sda",
+      "canonicaldevicefile": "/dev/sda",
+      "devicefile": "/dev/disk/by-id/ata-OMVSSD_OMVTESTSSD2",
+      "devicelinks": [
+        "/dev/disk/by-diskseq/3",
+        "/dev/disk/by-id/ata-OMVSSD_OMVTESTSSD2",
+        "/dev/disk/by-path/pci-0000:00:03.0-ata-2",
+        "/dev/disk/by-path/pci-0000:00:03.0-ata-2.0"
+      ],
+      "model": "OMVSSD",
+      "size": "4294967296",
+      "temperature": "31",
+      "description": "OMVSSD [/dev/sda, 4.00 GiB]",
+      "vendor": "ATA",
+      "serialnumber": "OMVTESTSSD2",
+      "wwn": "",
+      "overallstatus": "GOOD",
+      "uuid": "fa4b1c66-ef79-11e5-87a0-0002b3a176b4",
+      "monitor": false,
+      "_used": false
+    },
+    {
+      "devicename": "sdb",
+      "canonicaldevicefile": "/dev/sdb",
+      "devicefile": "/dev/disk/by-id/ata-OMVSSD_OMVTESTSSD3",
+      "devicelinks": [
+        "/dev/disk/by-diskseq/4",
+        "/dev/disk/by-id/ata-OMVSSD_OMVTESTSSD3",
+        "/dev/disk/by-path/pci-0000:00:03.0-ata-3",
+        "/dev/disk/by-path/pci-0000:00:03.0-ata-3.0"
+      ],
+      "model": "OMVSSD",
+      "size": "6442450944",
+      "temperature": "31",
+      "description": "OMVSSD [/dev/sdb, 6.00 GiB]",
+      "vendor": "ATA",
+      "serialnumber": "OMVTESTSSD3",
+      "wwn": "",
+      "overallstatus": "GOOD",
+      "uuid": "fa4b1c66-ef79-11e5-87a0-0002b3a176b4",
+      "monitor": false,
+      "_used": false
+    },
+    {
+      "devicename": "sdc",
+      "canonicaldevicefile": "/dev/sdc",
+      "devicefile": "/dev/disk/by-id/ata-OMVHDD_OMVTESTHDD1",
+      "devicelinks": [
+        "/dev/disk/by-diskseq/5",
+        "/dev/disk/by-id/ata-OMVHDD_OMVTESTHDD1",
+        "/dev/disk/by-path/pci-0000:00:03.0-ata-4",
+        "/dev/disk/by-path/pci-0000:00:03.0-ata-4.0"
+      ],
+      "model": "OMVHDD",
+      "size": "6442450944",
+      "temperature": "31",
+      "description": "OMVHDD [/dev/sdc, 6.00 GiB]",
+      "vendor": "ATA",
+      "serialnumber": "OMVTESTHDD1",
+      "wwn": "",
+      "overallstatus": "GOOD",
+      "uuid": "fa4b1c66-ef79-11e5-87a0-0002b3a176b4",
+      "monitor": false,
+      "_used": false
+    },
+    {
+      "devicename": "sdd",
+      "canonicaldevicefile": "/dev/sdd",
+      "devicefile": "/dev/disk/by-id/ata-OMVHDD_OMVTESTHDD2",
+      "devicelinks": [
+        "/dev/disk/by-diskseq/6",
+        "/dev/disk/by-id/ata-OMVHDD_OMVTESTHDD2",
+        "/dev/disk/by-path/pci-0000:00:03.0-ata-5",
+        "/dev/disk/by-path/pci-0000:00:03.0-ata-5.0"
+      ],
+      "model": "OMVHDD",
+      "size": "6442450944",
+      "temperature": "31",
+      "description": "OMVHDD [/dev/sdd, 6.00 GiB]",
+      "vendor": "ATA",
+      "serialnumber": "OMVTESTHDD2",
+      "wwn": "",
+      "overallstatus": "GOOD",
+      "uuid": "fa4b1c66-ef79-11e5-87a0-0002b3a176b4",
+      "monitor": false,
+      "_used": false
+    },
+    {
+      "devicename": "sde",
+      "canonicaldevicefile": "/dev/sde",
+      "devicefile": "/dev/disk/by-id/ata-OMVHDD_OMVTESTHDD3",
+      "devicelinks": [
+        "/dev/disk/by-diskseq/7",
+        "/dev/disk/by-id/ata-OMVHDD_OMVTESTHDD3",
+        "/dev/disk/by-path/pci-0000:00:03.0-ata-6",
+        "/dev/disk/by-path/pci-0000:00:03.0-ata-6.0"
+      ],
+      "model": "OMVHDD",
+      "size": "8589934592",
+      "temperature": "31",
+      "description": "OMVHDD [/dev/sde, 8.00 GiB]",
+      "vendor": "ATA",
+      "serialnumber": "OMVTESTHDD3",
+      "wwn": "",
+      "overallstatus": "GOOD",
+      "uuid": "fa4b1c66-ef79-11e5-87a0-0002b3a176b4",
+      "monitor": false,
+      "_used": false
+    },
+    {
+      "devicename": "sdf",
+      "canonicaldevicefile": "/dev/sdf",
+      "devicefile": "/dev/disk/by-id/ata-OMVSSD_OMVTESTSSD1",
+      "devicelinks": [
+        "/dev/disk/by-diskseq/8",
+        "/dev/disk/by-id/ata-OMVSSD_OMVTESTSSD1",
+        "/dev/disk/by-path/pci-0000:00:03.0-ata-1",
+        "/dev/disk/by-path/pci-0000:00:03.0-ata-1.0"
+      ],
+      "model": "OMVSSD",
+      "size": "4294967296",
+      "temperature": "31",
+      "description": "OMVSSD [/dev/sdf, 4.00 GiB]",
+      "vendor": "ATA",
+      "serialnumber": "OMVTESTSSD1",
+      "wwn": "",
+      "overallstatus": "GOOD",
+      "uuid": "fa4b1c66-ef79-11e5-87a0-0002b3a176b4",
+      "monitor": false,
+      "_used": false
+    }
+  ]
+}

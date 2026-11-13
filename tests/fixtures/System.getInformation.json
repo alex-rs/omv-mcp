@@ -1,0 +1,29 @@
+{
+  "ts": 1794611643,
+  "time": "Fri Nov 13 23:14:03 2026",
+  "hostname": "omv-test",
+  "version": "8.6.1-1 (Synchrony)",
+  "cpuModelName": "AMD Ryzen 9 7950X 16-Core Processor",
+  "cpuUtilization": 0,
+  "cpuCores": "2",
+  "cpuMhz": "4500.012",
+  "memTotal": "4112936960",
+  "memFree": "3467448320",
+  "memUsed": "472666112",
+  "memAvailable": "3640270848",
+  "memUtilization": "0.11492",
+  "kernel": "Linux 6.12.116+deb13-cloud-amd64",
+  "uptime": 54.79,
+  "loadAverage": {
+    "1min": 0.15,
+    "5min": 0.05,
+    "15min": 0.02
+  },
+  "configDirty": true,
+  "dirtyModules": {
+    "ssh": "A secure shell (SSH) server."
+  },
+  "rebootRequired": false,
+  "availablePkgUpdates": 35,
+  "displayWelcomeMessage": true
+}

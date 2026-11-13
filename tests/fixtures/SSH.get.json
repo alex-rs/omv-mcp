@@ -1,0 +1,10 @@
+{
+  "enable": true,
+  "port": 22,
+  "passwordauthentication": "***",
+  "pubkeyauthentication": true,
+  "permitrootlogin": true,
+  "tcpforwarding": false,
+  "compression": false,
+  "extraoptions": ""
+}

@@ -1,0 +1,747 @@
+[
+  {
+    "type": "rpc",
+    "id": "rpc.compose.set",
+    "params": {
+      "type": "object",
+      "properties": {
+        "sharedfolderref": {
+          "type": "string",
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "uuidv4"
+            },
+            {
+              "type": "string",
+              "maxLength": 0
+            }
+          ],
+          "required": true
+        },
+        "composeowner": {
+          "type": "string",
+          "required": true
+        },
+        "composegroup": {
+          "type": "string",
+          "required": true
+        },
+        "mode": {
+          "type": "string",
+          "required": true
+        },
+        "datasharedfolderref": {
+          "type": "string",
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "uuidv4"
+            },
+            {
+              "type": "string",
+              "maxLength": 0
+            }
+          ],
+          "required": true
+        },
+        "backupsharedfolderref": {
+          "type": "string",
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "uuidv4"
+            },
+            {
+              "type": "string",
+              "maxLength": 0
+            }
+          ],
+          "required": true
+        },
+        "backupmaxsize": {
+          "type": "integer",
+          "required": true
+        },
+        "backupbackend": {
+          "type": "string",
+          "enum": [
+            "borg",
+            "rsync"
+          ],
+          "required": true
+        },
+        "borgkeep": {
+          "type": "integer",
+          "required": true
+        },
+        "borgencryption": {
+          "type": "string",
+          "enum": [
+            "none",
+            "repokey"
+          ],
+          "required": true
+        },
+        "borgpassphrase": {
+          "type": "string",
+          "required": true
+        },
+        "dockerStorage": {
+          "type": "string",
+          "required": false
+        },
+        "dockersharedfolderref": {
+          "type": "string",
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "uuidv4"
+            },
+            {
+              "type": "string",
+              "maxLength": 0
+            }
+          ],
+          "required": true
+        },
+        "logmaxsize": {
+          "type": "integer",
+          "required": true
+        },
+        "liverestore": {
+          "type": "boolean",
+          "required": true
+        },
+        "createsymlinks": {
+          "type": "boolean",
+          "required": true
+        },
+        "podmanStorage": {
+          "type": "string",
+          "required": false
+        },
+        "podmansharedfolderref": {
+          "type": "string",
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "uuidv4"
+            },
+            {
+              "type": "string",
+              "maxLength": 0
+            }
+          ],
+          "required": true
+        },
+        "urlHostname": {
+          "type": "string",
+          "required": true
+        },
+        "cachetimefiles": {
+          "type": "integer",
+          "required": true
+        },
+        "cachetimeservices": {
+          "type": "integer",
+          "required": true
+        },
+        "cachetimestats": {
+          "type": "integer",
+          "required": true
+        },
+        "cachetimeimages": {
+          "type": "integer",
+          "required": true
+        },
+        "cachetimenetworks": {
+          "type": "integer",
+          "required": true
+        },
+        "cachetimevolumes": {
+          "type": "integer",
+          "required": true
+        },
+        "cachetimecontainers": {
+          "type": "integer",
+          "required": true
+        },
+        "showcmd": {
+          "type": "boolean",
+          "required": true
+        },
+        "podman": {
+          "type": "boolean",
+          "required": true
+        },
+        "runconfig": {
+          "type": "boolean",
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.compose.setfile",
+    "params": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "required": true
+        },
+        "body": {
+          "type": "string",
+          "required": true
+        },
+        "showenv": {
+          "type": "boolean",
+          "required": true
+        },
+        "env": {
+          "type": "string",
+          "required": true
+        },
+        "showoverride": {
+          "type": "boolean",
+          "required": true
+        },
+        "override": {
+          "type": "string",
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.compose.setconfig",
+    "params": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "required": true
+        },
+        "fileref": {
+          "type": "string",
+          "required": true
+        },
+        "body": {
+          "type": "string",
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.compose.setglobalenv",
+    "params": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "required": true
+        },
+        "globalenv": {
+          "type": "string",
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.compose.setdockerfile",
+    "params": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "required": true
+        },
+        "body": {
+          "type": "string",
+          "required": true
+        },
+        "script": {
+          "type": "string",
+          "required": true
+        },
+        "scriptfile": {
+          "type": "string",
+          "required": true
+        },
+        "conf": {
+          "type": "string",
+          "required": true
+        },
+        "conffile": {
+          "type": "string",
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.compose.setexample",
+    "params": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "required": true
+        },
+        "description": {
+          "type": "string",
+          "required": true
+        },
+        "example": {
+          "type": "string",
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.compose.seturl",
+    "params": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "required": true
+        },
+        "description": {
+          "type": "string",
+          "required": true
+        },
+        "url": {
+          "type": "string",
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.compose.getcontainerlog",
+    "params": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "name": {
+          "type": "string",
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.compose.getservicelog",
+    "params": {
+      "type": "object",
+      "properties": {
+        "service": {
+          "type": "string",
+          "required": true
+        },
+        "name": {
+          "type": "string",
+          "required": true
+        },
+        "envpath": {
+          "type": "string",
+          "required": true
+        },
+        "path": {
+          "type": "string",
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.compose.getlog",
+    "params": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.compose.doautocompose",
+    "params": {
+      "type": "object",
+      "properties": {
+        "container": {
+          "type": "string",
+          "required": true
+        },
+        "name": {
+          "type": "string",
+          "required": true
+        },
+        "description": {
+          "type": "string",
+          "required": true
+        },
+        "version": {
+          "type": "string",
+          "enum": [
+            "1",
+            "2",
+            "3"
+          ],
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.compose.doprune",
+    "params": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string",
+          "enum": [
+            "system prune",
+            "image prune",
+            "image prune --all",
+            "container prune",
+            "volume prune",
+            "network prune"
+          ],
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.compose.dodockercmd",
+    "params": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "cmd": {
+          "type": "string",
+          "enum": [
+            "inspect",
+            "logs",
+            "restart"
+          ],
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.compose.setjob",
+    "params": {
+      "type": "object",
+      "properties": {
+        "uuid": {
+          "type": "string",
+          "required": true
+        },
+        "enable": {
+          "type": "boolean",
+          "required": true
+        },
+        "filter": {
+          "type": "string",
+          "required": true
+        },
+        "backup": {
+          "type": "boolean",
+          "required": true
+        },
+        "prebackup": {
+          "type": "string",
+          "required": true
+        },
+        "postbackup": {
+          "type": "string",
+          "required": true
+        },
+        "maintenance": {
+          "type": "boolean",
+          "required": true
+        },
+        "cstate": {
+          "type": "boolean",
+          "required": true
+        },
+        "update": {
+          "type": "boolean",
+          "required": true
+        },
+        "prune": {
+          "type": "boolean",
+          "required": true
+        },
+        "filestart": {
+          "type": "boolean",
+          "required": true
+        },
+        "filestop": {
+          "type": "boolean",
+          "required": true
+        },
+        "filebuild": {
+          "type": "boolean",
+          "required": true
+        },
+        "filepull": {
+          "type": "boolean",
+          "required": true
+        },
+        "filenocache": {
+          "type": "boolean",
+          "required": true
+        },
+        "fileprunebuilder": {
+          "type": "boolean",
+          "required": true
+        },
+        "sendemail": {
+          "type": "boolean",
+          "required": true
+        },
+        "emailonerror": {
+          "type": "boolean",
+          "required": true
+        },
+        "verbose": {
+          "type": "boolean",
+          "required": true
+        },
+        "skipstartstop": {
+          "type": "boolean",
+          "required": true
+        },
+        "comment": {
+          "type": "string"
+        },
+        "excludefilter": {
+          "type": "string"
+        },
+        "filterselect": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "required": false
+        },
+        "excludeselect": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "required": false
+        },
+        "execution": {
+          "type": "string",
+          "enum": [
+            "exactly",
+            "hourly",
+            "daily",
+            "weekly",
+            "monthly",
+            "yearly",
+            "reboot"
+          ],
+          "required": true
+        },
+        "minute": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "*"
+                ]
+              },
+              {
+                "type": "string",
+                "pattern": "^[0-9]|[1-5][0-9]$"
+              }
+            ]
+          },
+          "required": true
+        },
+        "everynminute": {
+          "type": "boolean",
+          "required": true
+        },
+        "hour": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "*"
+                ]
+              },
+              {
+                "type": "string",
+                "pattern": "^[0-9]|1[0-9]|2[0-3]$"
+              }
+            ]
+          },
+          "required": true
+        },
+        "everynhour": {
+          "type": "boolean",
+          "required": true
+        },
+        "month": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "*"
+                ]
+              },
+              {
+                "type": "string",
+                "pattern": "^[1-9]|1[0-2]$"
+              }
+            ]
+          },
+          "required": true
+        },
+        "dayofmonth": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "*"
+                ]
+              },
+              {
+                "type": "string",
+                "pattern": "^[1-9]|[12][0-9]|3[01]$"
+              }
+            ]
+          },
+          "required": true
+        },
+        "everyndayofmonth": {
+          "type": "boolean",
+          "required": true
+        },
+        "dayofweek": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "*"
+                ]
+              },
+              {
+                "type": "string",
+                "pattern": "^[1-7]$"
+              }
+            ]
+          },
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.compose.dofindports",
+    "params": {
+      "type": "object",
+      "properties": {
+        "startPort": {
+          "type": "integer",
+          "required": true,
+          "minimum": 1,
+          "maximum": 65534
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.compose.importportainerstacks",
+    "params": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "required": true
+        },
+        "apikey": {
+          "type": "string",
+          "required": false
+        },
+        "username": {
+          "type": "string",
+          "required": false
+        },
+        "password": {
+          "type": "string",
+          "required": false
+        },
+        "sslverify": {
+          "type": "boolean",
+          "required": false
+        }
+      }
+    }
+  }
+]

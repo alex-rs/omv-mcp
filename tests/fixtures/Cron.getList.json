@@ -1,0 +1,23 @@
+{
+  "total": 1,
+  "data": [
+    {
+      "uuid": "57e13a3c-5a94-11ec-8153-3f587eab8e1f",
+      "enable": false,
+      "execution": "exactly",
+      "sendemail": false,
+      "comment": "",
+      "type": "userdefined",
+      "minute": "30",
+      "everynminute": false,
+      "hour": "2",
+      "everynhour": false,
+      "month": "*",
+      "dayofmonth": "*",
+      "everyndayofmonth": false,
+      "dayofweek": "7",
+      "username": "root",
+      "command": "for conf in /etc/snapraid/omv-snapraid-*.conf; do /usr/sbin/omv-snapraid-diff ${conf}; done"
+    }
+  ]
+}

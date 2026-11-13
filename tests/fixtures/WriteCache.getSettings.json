@@ -1,0 +1,21 @@
+{
+  "enable": true,
+  "use_tmpfs": true,
+  "sharedfolderref": "",
+  "tmpfs_size": "25%",
+  "ram_backing": "tmpfs",
+  "zram_size": "512M",
+  "zram_algo": "zstd",
+  "journald_storage": "volatile",
+  "flush_on_boot": false,
+  "flush_on_shutdown": true,
+  "rotate_on_shutdown": true,
+  "flush_hourly": false,
+  "flush_daily": true,
+  "hour": 3,
+  "minute": 45,
+  "rotate_on_daily_flush": true,
+  "paths": "",
+  "services": "",
+  "status": "Target                                     Overlay  Lower  Upper Used  Upper Dir\n--------------------------------------------------------------------------------------------------------------\n/run/omv-writecache                        tmpfs    -              0B  size=980.6M avail=980.6M use%=0%"
+}

@@ -1,0 +1,33 @@
+#cloud-config
+hostname: omv-test
+manage_etc_hosts: true
+ssh_pwauth: true
+disable_root: false
+users:
+  - name: root
+    ssh_authorized_keys:
+      - __SSH_PUBKEY__
+chpasswd:
+  expire: false
+  list: |
+    root:__ADMIN_PASSWORD__
+package_update: true
+packages:
+  - systemd-resolved
+  - psmisc
+  - gnupg
+  - wget
+  - curl
+  - lsb-release
+write_files:
+  - path: /usr/local/sbin/omv-provision.sh
+    permissions: '0755'
+    content: |
+__PROVISION_SCRIPT__
+  - path: /root/omv-admin.pass
+    permissions: '0600'
+    content: |
+      __ADMIN_PASSWORD__
+runcmd:
+  - [bash, /usr/local/sbin/omv-provision.sh]
+  - [touch, /var/lib/omv-test-provisioned]

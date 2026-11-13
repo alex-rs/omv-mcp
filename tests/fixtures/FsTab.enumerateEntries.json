@@ -1,0 +1,122 @@
+[
+  {
+    "uuid": "79684322-3eac-11ea-a974-63a080abab18",
+    "fsname": "/dev/disk/by-uuid/79d53ec0-550d-407e-84a8-bf959ed6bf3f",
+    "dir": "/",
+    "type": "ext4",
+    "opts": "rw,discard,errors=remount-ro,x-systemd.growfs",
+    "freq": 0,
+    "passno": "***",
+    "hidden": true,
+    "usagewarnthreshold": 0,
+    "comment": ""
+  },
+  {
+    "uuid": "8f8bcdee-ec0c-4c5c-a998-206569c37e4d",
+    "fsname": "/dev/disk/by-uuid/efd0be24-7df9-4ff9-989b-40da1baee67e",
+    "dir": "/srv/dev-disk-by-uuid-efd0be24-7df9-4ff9-989b-40da1baee67e",
+    "type": "ext4",
+    "opts": "defaults,nofail,user_xattr,usrquota,grpquota,acl",
+    "freq": 0,
+    "passno": "***",
+    "hidden": false,
+    "usagewarnthreshold": 0,
+    "comment": ""
+  },
+  {
+    "uuid": "4c7e5d95-64ba-45b7-888e-694139131fb8",
+    "fsname": "/dev/disk/by-uuid/4cebacb8-df57-4bb5-9d4b-ae3490e4b2e7",
+    "dir": "/srv/dev-disk-by-uuid-4cebacb8-df57-4bb5-9d4b-ae3490e4b2e7",
+    "type": "ext4",
+    "opts": "defaults,nofail,user_xattr,usrquota,grpquota,acl",
+    "freq": 0,
+    "passno": "***",
+    "hidden": false,
+    "usagewarnthreshold": 0,
+    "comment": ""
+  },
+  {
+    "uuid": "7298625f-fdfc-406c-9802-75d310d6620a",
+    "fsname": "/dev/disk/by-uuid/1c3117db-ca4d-4b45-9301-ee53459a2a11",
+    "dir": "/srv/dev-disk-by-uuid-1c3117db-ca4d-4b45-9301-ee53459a2a11",
+    "type": "ext4",
+    "opts": "defaults,nofail,user_xattr,usrquota,grpquota,acl",
+    "freq": 0,
+    "passno": "***",
+    "hidden": false,
+    "usagewarnthreshold": 0,
+    "comment": ""
+  },
+  {
+    "uuid": "054169ce-11a0-4c81-8412-f52faa4e8e45",
+    "fsname": "/dev/disk/by-uuid/338124e0-d4ca-41fc-9309-a8ff94b64a89",
+    "dir": "/srv/dev-disk-by-uuid-338124e0-d4ca-41fc-9309-a8ff94b64a89",
+    "type": "ext4",
+    "opts": "defaults,nofail,user_xattr,usrquota,grpquota,acl",
+    "freq": 0,
+    "passno": "***",
+    "hidden": false,
+    "usagewarnthreshold": 0,
+    "comment": ""
+  },
+  {
+    "uuid": "140872ae-25c0-40f6-b7f2-2196fa1d6920",
+    "fsname": "/dev/disk/by-uuid/77956e4c-56f9-474d-ae3b-90e287714cf2",
+    "dir": "/srv/dev-disk-by-uuid-77956e4c-56f9-474d-ae3b-90e287714cf2",
+    "type": "ext4",
+    "opts": "defaults,nofail,user_xattr,usrquota,grpquota,acl",
+    "freq": 0,
+    "passno": "***",
+    "hidden": false,
+    "usagewarnthreshold": 0,
+    "comment": ""
+  },
+  {
+    "uuid": "b0becb83-2103-4198-b5cc-dc3f1b4b64ff",
+    "fsname": "/dev/disk/by-uuid/ac44d470-a826-44b2-bef4-ecfe629897c6",
+    "dir": "/srv/dev-disk-by-uuid-ac44d470-a826-44b2-bef4-ecfe629897c6",
+    "type": "ext4",
+    "opts": "defaults,nofail,user_xattr,usrquota,grpquota,acl",
+    "freq": 0,
+    "passno": "***",
+    "hidden": false,
+    "usagewarnthreshold": 0,
+    "comment": ""
+  },
+  {
+    "uuid": "4baaf731-f8ff-439e-aea2-e90429b1c13c",
+    "fsname": "/dev/disk/by-uuid/1d10d02e-42af-4a95-9b3f-de7eef3683dc",
+    "dir": "/srv/dev-disk-by-uuid-1d10d02e-42af-4a95-9b3f-de7eef3683dc",
+    "type": "ext4",
+    "opts": "defaults,nofail,user_xattr,usrquota,grpquota,acl",
+    "freq": 0,
+    "passno": "***",
+    "hidden": false,
+    "usagewarnthreshold": 0,
+    "comment": ""
+  },
+  {
+    "uuid": "0f858435-cc27-4ecf-959f-8150eaae1b38",
+    "fsname": "/dev/disk/by-uuid/2026-11-13-22-55-35-00",
+    "dir": "/srv/dev-disk-by-uuid-2026-11-13-22-55-35-00",
+    "type": "iso9660",
+    "opts": "ro,nofail",
+    "freq": 0,
+    "passno": "***",
+    "hidden": false,
+    "usagewarnthreshold": 0,
+    "comment": ""
+  },
+  {
+    "uuid": "50ee0deb-fe19-4358-8f7c-35f62fdf554e",
+    "fsname": "168b579c-d7ee-4572-90bd-42422577c9d1",
+    "dir": "/srv/mergerfs/pool",
+    "type": "fuse.mergerfs",
+    "opts": "",
+    "freq": 0,
+    "passno": "***",
+    "hidden": true,
+    "usagewarnthreshold": 0,
+    "comment": ""
+  }
+]

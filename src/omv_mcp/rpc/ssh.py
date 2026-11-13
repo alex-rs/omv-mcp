@@ -40,17 +40,31 @@ def _as_bytes(value: bytes | str | None) -> bytes:
     return value.encode("utf-8")
 
 
-def _parse_omv_output(stdout: str, stderr: str) -> Any:
-    lines = [line.strip() for line in (stdout + "\n" + stderr).splitlines() if line.strip()]
-    for line in reversed(lines):
-        if not line.startswith("{"):
-            continue
+def _parse_omv_output(stdout: str, stderr: str, exit_status: int = 0) -> Any:
+    decoder = json.JSONDecoder()
+    candidates: list[dict[str, Any]] = []
+    for text in (stdout, stderr):
         try:
-            parsed = json.loads(line)
+            whole = json.loads(text.strip())
         except json.JSONDecodeError:
+            whole = None
+        if isinstance(whole, dict):
+            candidates.append(whole)
             continue
-        if not isinstance(parsed, dict):
-            continue
+        if whole is not None or text.strip() == "null":
+            return whole
+        for index, char in enumerate(text):
+            if char != "{":
+                continue
+            try:
+                parsed, _ = decoder.raw_decode(text[index:])
+            except json.JSONDecodeError:
+                continue
+            if isinstance(parsed, dict) and ("response" in parsed or "error" in parsed):
+                candidates.append(parsed)
+    for parsed in reversed(candidates):
+        if "response" not in parsed and "error" not in parsed:
+            return parsed
         if "error" in parsed:
             error = parsed.get("error") or {}
             if isinstance(error, dict):
@@ -62,6 +76,9 @@ def _parse_omv_output(stdout: str, stderr: str) -> Any:
             raise OmvRpcError(redact_text(str(error)))
         if "response" in parsed:
             return parsed["response"]
+    lines = [line.strip() for line in (stdout + "\n" + stderr).splitlines() if line.strip()]
+    if not lines and exit_status == 0:
+        return None
     detail = lines[-1] if lines else "empty output"
     raise OmvRpcError(redact_text(detail))
 
@@ -126,7 +143,9 @@ class SshBackend:
         command = build_command(self._settings.rpc_user, service, method, params)
         result = await self._run_command(command, timeout=timeout)
         try:
-            return _parse_omv_output(_decode(result.stdout), _decode(result.stderr))
+            return _parse_omv_output(
+                _decode(result.stdout), _decode(result.stderr), result.exit_status or 0
+            )
         except OmvRpcError as exc:
             exc.service, exc.method = service, method
             raise

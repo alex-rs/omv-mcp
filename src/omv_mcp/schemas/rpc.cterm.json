@@ -1,0 +1,45 @@
+[
+  {
+    "type": "rpc",
+    "id": "rpc.cterm.set",
+    "params": {
+      "type": "object",
+      "properties": {
+        "enable": {
+          "type": "boolean",
+          "required": true
+        },
+        "host": {
+          "type": "string",
+          "required": true
+        },
+        "port": {
+          "type": "integer",
+          "required": true
+        },
+        "hostshell": {
+          "type": "boolean",
+          "required": true
+        },
+        "enablenginx": {
+          "type": "boolean",
+          "required": true
+        },
+        "autosecret": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 64,
+          "required": true
+        },
+        "autouser": {
+          "type": "string",
+          "required": true
+        },
+        "basepath": {
+          "type": "string",
+          "required": true
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,130 @@
+[
+  {
+    "type": "rpc",
+    "id": "rpc.wireguard.setclient",
+    "params": {
+      "type": "object",
+      "properties": {
+        "enable": {
+          "type": "boolean"
+        },
+        "clientnum": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 253
+        },
+        "tunnelnum": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 255
+        },
+        "name": {
+          "type": "string"
+        },
+        "restrict": {
+          "type": "boolean"
+        },
+        "vpn": {
+          "type": "boolean"
+        },
+        "localip": {
+          "type": "boolean"
+        },
+        "persistent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600
+        },
+        "privatekeyclient": {
+          "type": "string"
+        },
+        "publickeyclient": {
+          "type": "string"
+        },
+        "presharedkeyclient": {
+          "type": "string"
+        },
+        "dns": {
+          "type": "string"
+        },
+        "dns2": {
+          "type": "string"
+        },
+        "subnets": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.wireguard.settunnel",
+    "params": {
+      "type": "object",
+      "properties": {
+        "enable": {
+          "type": "boolean"
+        },
+        "tunnelnum": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 255
+        },
+        "tunnelname": {
+          "type": "string"
+        },
+        "nic": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "default": 51820
+        },
+        "iptables": {
+          "type": "boolean"
+        },
+        "persistent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600
+        },
+        "mtu": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9999,
+          "default": 0
+        },
+        "privatekeyserver": {
+          "type": "string"
+        },
+        "publickeyserver": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.wireguard.setcustom",
+    "params": {
+      "type": "object",
+      "properties": {
+        "enable": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^\\w{1,9}$"
+        },
+        "customcfg": {
+          "type": "string"
+        }
+      }
+    }
+  }
+]

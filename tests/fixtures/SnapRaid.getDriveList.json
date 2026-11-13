@@ -1,0 +1,50 @@
+{
+  "total": 3,
+  "data": [
+    {
+      "uuid": "d4882c7e-ddbc-4610-a15a-c5d25eb9eacb",
+      "arrayref": "ecdfdf92-deba-4677-a139-6326678fe90f",
+      "mntentref": "338124e0-d4ca-41fc-9309-a8ff94b64a89",
+      "name": "data1",
+      "label": "",
+      "path": "",
+      "content": true,
+      "data": true,
+      "parity": false,
+      "paritynum": 1,
+      "paritysplit": false,
+      "emptydir": false,
+      "arrayname": "main"
+    },
+    {
+      "uuid": "a69db84f-a8b1-4da4-afcf-8717e9eeded5",
+      "arrayref": "ecdfdf92-deba-4677-a139-6326678fe90f",
+      "mntentref": "77956e4c-56f9-474d-ae3b-90e287714cf2",
+      "name": "data2",
+      "label": "",
+      "path": "",
+      "content": true,
+      "data": true,
+      "parity": false,
+      "paritynum": 1,
+      "paritysplit": false,
+      "emptydir": false,
+      "arrayname": "main"
+    },
+    {
+      "uuid": "ec2fa7e0-23c8-41e6-ab73-d078a8456a3f",
+      "arrayref": "ecdfdf92-deba-4677-a139-6326678fe90f",
+      "mntentref": "ac44d470-a826-44b2-bef4-ecfe629897c6",
+      "name": "parity1",
+      "label": "",
+      "path": "",
+      "content": false,
+      "data": false,
+      "parity": true,
+      "paritynum": 1,
+      "paritysplit": false,
+      "emptydir": false,
+      "arrayname": "main"
+    }
+  ]
+}

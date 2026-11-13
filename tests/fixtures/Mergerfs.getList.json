@@ -1,0 +1,18 @@
+{
+  "total": 1,
+  "data": [
+    {
+      "uuid": "168b579c-d7ee-4572-90bd-42422577c9d1",
+      "name": "pool",
+      "mntentref": "",
+      "paths": "/srv/dev-disk-by-uuid-338124e0-d4ca-41fc-9309-a8ff94b64a89:/srv/dev-disk-by-uuid-77956e4c-56f9-474d-ae3b-90e287714cf2:/srv/dev-disk-by-uuid-ac44d470-a826-44b2-bef4-ecfe629897c6",
+      "createpolicy": "ff",
+      "minfreespace": 1,
+      "minfreespaceunit": "G",
+      "options": "defaults,cache.files=off",
+      "pathsa": "/srv/dev-disk-by-uuid-338124e0-d4ca-41fc-9309-a8ff94b64a89<br />/srv/dev-disk-by-uuid-77956e4c-56f9-474d-ae3b-90e287714cf2<br />/srv/dev-disk-by-uuid-ac44d470-a826-44b2-bef4-ecfe629897c6",
+      "pathcount": 3,
+      "inuse": false
+    }
+  ]
+}

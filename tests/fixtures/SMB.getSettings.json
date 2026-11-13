@@ -1,0 +1,23 @@
+{
+  "enable": false,
+  "workgroup": "WORKGROUP",
+  "serverstring": "%h server",
+  "loglevel": 0,
+  "usesendfile": true,
+  "aio": true,
+  "timeserver": false,
+  "winssupport": false,
+  "winsserver": "",
+  "homesenable": false,
+  "homesbrowseable": true,
+  "homesrecyclebin": false,
+  "homesmacoscompat": false,
+  "homesinheritacls": false,
+  "homesinheritpermissions": false,
+  "homesextraoptions": "",
+  "homesfollowsymlinks": false,
+  "homeswidelinks": false,
+  "netbios": false,
+  "minprotocol": "SMB2",
+  "extraoptions": ""
+}

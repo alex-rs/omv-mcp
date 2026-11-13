@@ -1,0 +1,35 @@
+{
+  "total": 2,
+  "data": [
+    {
+      "name": "tester",
+      "uid": 1000,
+      "gid": 100,
+      "comment": "test user",
+      "dir": "/home/tester",
+      "shell": "/usr/sbin/nologin",
+      "groups": [
+        "users"
+      ],
+      "system": false,
+      "email": "",
+      "disallowusermod": false,
+      "sshpubkeys": []
+    },
+    {
+      "name": "mfatester",
+      "uid": 1001,
+      "gid": 100,
+      "comment": "MFA test user",
+      "dir": "/home/mfatester",
+      "shell": "/bin/bash",
+      "groups": [
+        "users"
+      ],
+      "system": false,
+      "email": "",
+      "disallowusermod": false,
+      "sshpubkeys": []
+    }
+  ]
+}

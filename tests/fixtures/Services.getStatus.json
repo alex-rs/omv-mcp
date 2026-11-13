@@ -1,0 +1,47 @@
+{
+  "total": 7,
+  "data": [
+    {
+      "name": "Docker",
+      "title": "Docker",
+      "enabled": true,
+      "running": true
+    },
+    {
+      "name": "cterm",
+      "title": "CTerm",
+      "enabled": false,
+      "running": false
+    },
+    {
+      "name": "nfs",
+      "title": "NFS",
+      "enabled": false,
+      "running": false
+    },
+    {
+      "name": "rsyncd",
+      "title": "RSync server",
+      "enabled": false,
+      "running": false
+    },
+    {
+      "name": "samba",
+      "title": "SMB/CIFS",
+      "enabled": false,
+      "running": false
+    },
+    {
+      "name": "ssh",
+      "title": "SSH",
+      "enabled": true,
+      "running": true
+    },
+    {
+      "name": "writecache",
+      "title": "WriteCache",
+      "enabled": true,
+      "running": true
+    }
+  ]
+}

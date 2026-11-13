@@ -1,0 +1,15 @@
+[
+  {
+    "type": "rpc",
+    "id": "rpc.omvextras.set",
+    "params": {
+      "type": "object",
+      "properties": {
+        "docker": {
+          "type": "boolean",
+          "required": true
+        }
+      }
+    }
+  }
+]

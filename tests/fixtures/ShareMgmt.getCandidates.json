@@ -1,0 +1,38 @@
+[
+  {
+    "uuid": "79684322-3eac-11ea-a974-63a080abab18",
+    "description": "/dev/vda1 [EXT4, 2.02 GiB (10%) used, 20.40 GiB available]"
+  },
+  {
+    "uuid": "8f8bcdee-ec0c-4c5c-a998-206569c37e4d",
+    "description": "/dev/sdf1 [EXT4, 1.05 MiB (1%) used, 3.84 GiB available]"
+  },
+  {
+    "uuid": "4c7e5d95-64ba-45b7-888e-694139131fb8",
+    "description": "/dev/sda1 [EXT4, 1.03 MiB (1%) used, 3.84 GiB available]"
+  },
+  {
+    "uuid": "7298625f-fdfc-406c-9802-75d310d6620a",
+    "description": "/dev/sdb1 [EXT4, 1.54 MiB (1%) used, 5.80 GiB available]"
+  },
+  {
+    "uuid": "054169ce-11a0-4c81-8412-f52faa4e8e45",
+    "description": "/dev/sdc1 [EXT4, 1.53 MiB (1%) used, 5.80 GiB available]"
+  },
+  {
+    "uuid": "140872ae-25c0-40f6-b7f2-2196fa1d6920",
+    "description": "/dev/sdd1 [EXT4, 1.53 MiB (1%) used, 5.80 GiB available]"
+  },
+  {
+    "uuid": "b0becb83-2103-4198-b5cc-dc3f1b4b64ff",
+    "description": "/dev/sde1 [EXT4, 2.03 MiB (1%) used, 7.75 GiB available]"
+  },
+  {
+    "uuid": "4baaf731-f8ff-439e-aea2-e90429b1c13c",
+    "description": "/dev/nvme0n1p1 [EXT4, 1.53 MiB (1%) used, 5.80 GiB available]"
+  },
+  {
+    "uuid": "0f858435-cc27-4ecf-959f-8150eaae1b38",
+    "description": "/dev/sr0 [ISO9660, 368.00 KiB (100%) used, 0 B available]"
+  }
+]

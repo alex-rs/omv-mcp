@@ -1,0 +1,42 @@
+{
+  "total": 1,
+  "data": [
+    {
+      "uuid": "dcc695b6-c49a-4083-bffc-57bb579404e5",
+      "type": "ethernet",
+      "devicename": "enp0s5",
+      "method": "dhcp",
+      "address": "",
+      "netmask": "",
+      "gateway": "",
+      "routemetric": 0,
+      "method6": "dhcp",
+      "address6": "",
+      "netmask6": 64,
+      "gateway6": "",
+      "routemetric6": 1,
+      "dnsnameservers": "",
+      "dnssearch": "",
+      "mtu": 0,
+      "wol": false,
+      "comment": "",
+      "altmacaddress": "",
+      "slaves": [],
+      "bondprimary": "",
+      "bondmode": 1,
+      "bondmiimon": 0,
+      "bonddowndelay": 0,
+      "bondupdelay": 0,
+      "bondtransmithashpolicy": "layer2",
+      "vlanid": 1,
+      "vlanrawdevice": "",
+      "band": "auto",
+      "wpassid": "***",
+      "wpapsk": "***",
+      "keymanagement": "psk",
+      "hidden": false,
+      "_used": false,
+      "_readonly": false
+    }
+  ]
+}

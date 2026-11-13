@@ -1,0 +1,273 @@
+[
+  {
+    "type": "rpc",
+    "id": "rpc.snapraid.setarray",
+    "params": {
+      "type": "object",
+      "properties": {
+        "uuid": {
+          "type": "string",
+          "format": "uuidv4",
+          "required": true
+        },
+        "name": {
+          "type": "string",
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.snapraid.setsettings",
+    "params": {
+      "type": "object",
+      "properties": {
+        "blocksize": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "required": true
+        },
+        "hashsize": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "required": true
+        },
+        "autosave": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "required": true
+        },
+        "percentscrub": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "required": true
+        },
+        "nohidden": {
+          "type": "boolean",
+          "required": true
+        },
+        "defaultarray": {
+          "type": "string",
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "uuidv4"
+            },
+            {
+              "type": "string",
+              "maxLength": 0
+            }
+          ],
+          "required": true
+        },
+        "debug": {
+          "type": "boolean",
+          "required": true
+        },
+        "sendmail": {
+          "type": "boolean",
+          "required": true
+        },
+        "runscrub": {
+          "type": "boolean",
+          "required": true
+        },
+        "scrubfreq": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 365,
+          "required": true
+        },
+        "updthreshold": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "required": true
+        },
+        "delthreshold": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "required": true
+        },
+        "scrubpercent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "required": true
+        },
+        "prehash": {
+          "type": "boolean",
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.snapraid.setdrive",
+    "params": {
+      "type": "object",
+      "properties": {
+        "uuid": {
+          "type": "string",
+          "format": "uuidv4",
+          "required": true
+        },
+        "arrayref": {
+          "type": "string",
+          "format": "uuidv4",
+          "required": true
+        },
+        "mntentref": {
+          "type": "string",
+          "format": "uuidv4",
+          "required": true
+        },
+        "name": {
+          "type": "string",
+          "required": true
+        },
+        "content": {
+          "type": "boolean",
+          "required": true
+        },
+        "data": {
+          "type": "boolean",
+          "required": true
+        },
+        "parity": {
+          "type": "boolean",
+          "required": true
+        },
+        "paritynum": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6,
+          "required": true
+        },
+        "paritysplit": {
+          "type": "boolean",
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.snapraid.setrule",
+    "params": {
+      "type": "object",
+      "properties": {
+        "uuid": {
+          "type": "string",
+          "format": "uuidv4",
+          "required": true
+        },
+        "rule1": {
+          "type": "string",
+          "required": true
+        },
+        "prepend": {
+          "type": "boolean",
+          "required": false
+        },
+        "rtype": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1,
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.snapraid.executecommand",
+    "params": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string",
+          "enum": [
+            "sync",
+            "sync -h",
+            "sync -F",
+            "scrub",
+            "check",
+            "diff",
+            "status",
+            "fix",
+            "up",
+            "down",
+            "smart",
+            "devices",
+            "undelete",
+            "silent",
+            "force-empty-sync"
+          ],
+          "required": true
+        },
+        "file": {
+          "type": "string",
+          "required": false
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.snapraid.setdriveempty",
+    "params": {
+      "type": "object",
+      "properties": {
+        "uuid": {
+          "type": "string",
+          "format": "uuidv4",
+          "required": true
+        },
+        "emptydir": {
+          "type": "boolean",
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.snapraid.executedrivecommand",
+    "params": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string",
+          "enum": [
+            "check",
+            "fix",
+            "missing",
+            "up",
+            "down"
+          ],
+          "required": true
+        },
+        "diskname": {
+          "type": "string",
+          "required": true
+        },
+        "arrayname": {
+          "type": "string",
+          "required": true
+        },
+        "auditonly": {
+          "type": "boolean",
+          "required": false
+        }
+      }
+    }
+  }
+]
