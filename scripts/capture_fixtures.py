@@ -43,7 +43,6 @@ FIXTURES: list[tuple[str, str, dict[str, Any]]] = [
     ("Plugin", "getList", {"start": 0, "limit": -1}),
     ("Services", "getStatus", {}),
     ("PowerMgmt", "getScheduleList", {"start": 0, "limit": -1, "type": ["reboot"]}),
-    ("LogFile", "getList", {"id": "syslog", "start": 0, "limit": -1}),
     ("Network", "getGeneralSettings", {}),
     ("Network", "getInterfaceList", {"start": 0, "limit": -1}),
     ("CertificateMgmt", "getList", {"start": 0, "limit": -1}),

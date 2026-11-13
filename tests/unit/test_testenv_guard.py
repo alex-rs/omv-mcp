@@ -9,7 +9,7 @@ from testenv.guard import assert_test_target
 
 def test_rejects_non_test_ssh_port() -> None:
     settings = Settings(ssh_host="127.0.0.1", ssh_port=2223)
-    with pytest.raises(RuntimeError, match="127.0.0.1:2222"):
+    with pytest.raises(RuntimeError, match=r"127\.0\.0\.1:2222"):
         assert_test_target(settings)
 
 

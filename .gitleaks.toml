@@ -1,0 +1,6 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Generated OMV log-list fixture contains kernel key notifications, not credentials; the fixture was removed after capture."
+paths = ['''tests/fixtures/LogFile\.getList\.json''']
