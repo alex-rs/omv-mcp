@@ -11,6 +11,7 @@ from omv_mcp.safety.guard import (
     SafetyError,
     check_protected_group,
     check_protected_user,
+    is_generic_denied,
     is_never_exposed,
     is_ro_method,
     shared_folder_refs,
@@ -144,6 +145,10 @@ async def rpc_call(
     state = get_state(ctx)
     if is_never_exposed(service, method):
         raise SafetyError(f"RPC {service}.{method} is never exposed")
+    if is_generic_denied(service, method):
+        raise SafetyError(
+            f"RPC {service}.{method} is not available through rpc_call; use the dedicated tool"
+        )
     service_key = service.casefold()
     method_key = method.casefold()
     if (

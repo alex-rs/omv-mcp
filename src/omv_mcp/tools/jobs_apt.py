@@ -332,7 +332,18 @@ async def apt_updates_list(
 
 
 async def apt_changelog(ctx: Context, filename: str) -> Any:
-    return redact(await rpc_call_ro(get_state(ctx), "Apt", "getChangeLog", {"filename": filename}))
+    state = get_state(ctx)
+    job = await state.jobs.start("Apt", "getChangeLog", {"filename": filename})
+    result = await state.jobs.wait(job, state.settings.job_timeout_seconds, ctx)
+    return redact(
+        {
+            "filename": filename,
+            "job_id": job,
+            "running": result.running,
+            "pending_output": result.pending_output,
+            "output": result.output,
+        }
+    )
 
 
 async def apt_refresh(
@@ -510,7 +521,12 @@ TOOLS = (
         "List available package upgrades.",
         "Apt.enumerateUpgraded",
     ),
-    ro("apt_changelog", apt_changelog, "Return a package changelog.", "Apt.getChangeLog"),
+    ro(
+        "apt_changelog",
+        apt_changelog,
+        "Return a package changelog; filename is the .deb archive path from apt_updates_list.",
+        "Apt.getChangeLog",
+    ),
     op("apt_refresh", apt_refresh, "Refresh apt package lists.", "Apt.update", idempotent=False),
     admin(
         "apt_upgrade",

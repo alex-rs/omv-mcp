@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import re
 from importlib import resources
 from typing import Any
+
+_SERVICE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 
 
 def read_catalog() -> dict[str, Any]:
@@ -15,6 +18,8 @@ def read_catalog() -> dict[str, Any]:
 
 
 def read_schema(service: str) -> dict[str, Any] | None:
+    if not _SERVICE_RE.fullmatch(service):
+        return None
     name = f"rpc.{service.lower()}.json"
     try:
         text = resources.files(__package__).joinpath(name).read_text()

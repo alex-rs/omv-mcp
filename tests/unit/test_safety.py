@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from omv_mcp.models import PlanResponse
+from omv_mcp.rpc.errors import OmvRpcError
 from omv_mcp.safety.audit import AuditLog
 from omv_mcp.safety.confirm import ConfirmManager, canonical_args
 from omv_mcp.safety.guard import (
@@ -87,6 +88,27 @@ async def test_shared_folder_refs() -> None:
         }
     )
     assert await shared_folder_refs(backend, "target") == ["SMB", "Compose"]
+
+
+async def test_shared_folder_refs_skips_absent_compose_only() -> None:
+    backend = FakeBackend(
+        {
+            ("SMB", "getShareList"): {"data": [{"uuid": "u1", "sharedfolderref": "target"}]},
+            ("NFS", "getShareList"): {"data": []},
+            ("Rsync", "getList"): [],
+            ("Rsyncd", "getModuleList"): [],
+            ("Compose", "get"): OmvRpcError(
+                "RPC service 'Compose' not found.", service="Compose", method="get"
+            ),
+        }
+    )
+    assert await shared_folder_refs(backend, "target") == ["SMB"]
+
+    backend.responses[("Compose", "get")] = OmvRpcError(
+        "Compose RPC failed", service="Compose", method="get"
+    )
+    with pytest.raises(OmvRpcError):
+        await shared_folder_refs(backend, "target")
 
 
 async def test_rate_limiter() -> None:

@@ -371,6 +371,7 @@ TOOLS = (
         config_revert,
         "Revert unapplied config changes; destructive.",
         "Config.revertChangesBg",
+        destructive=True,
     ),
     ro("logs_list", logs_list, "List available log files.", "LogFile.getList"),
     ro(

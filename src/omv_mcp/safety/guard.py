@@ -6,6 +6,7 @@ import time
 from typing import Any
 
 from omv_mcp.rpc.base import RpcBackend
+from omv_mcp.rpc.errors import OmvRpcError
 
 
 class SafetyError(Exception):
@@ -34,6 +35,7 @@ NEVER_EXPOSED: frozenset[str] = frozenset(
         "Iptables.setRule",
         "Iptables.setRules",
         "Iptables.setRules6",
+        "Iptables.deleteRule",
         "SSH.set",
         "Wireguard.setTunnel",
         "Wireguard.setClient",
@@ -82,11 +84,42 @@ RO_DENY: frozenset[str] = frozenset(
 )
 
 
+# Readable by a dedicated tool (with redaction/stripping), never through generic rpc_call.
+GENERIC_DENY: frozenset[str] = frozenset(
+    {
+        "Session.login",
+        "Session.verify",
+        "Session.logout",
+        "UserMgmt.authUser",
+        "UserMgmt.verifyChallenge",
+        "WebGui.getLocalStorageItems",
+        "Compose.getFile",
+        "CertificateMgmt.get",
+        "CertificateMgmt.getDetail",
+        "Wireguard.getTunnelConfig",
+        "Wireguard.getClientConfig",
+        "Wireguard.getCustom",
+        "Wireguard.getCustomList",
+        "Wireguard.downloadTunnelConfig",
+        "Wireguard.downloadAllTunnelConfigs",
+        "Wireguard.downloadClientConfig",
+        "Wireguard.downloadAllClientConfigs",
+        "Wireguard.downloadQrCode",
+        "Wireguard.downloadAllQrCodes",
+        "Wireguard.generateQrCodes",
+    }
+)
+
+
 def is_never_exposed(service: str, method: str) -> bool:
     return (
         f"{service.casefold()}.{method.casefold()}" in {item.casefold() for item in NEVER_EXPOSED}
         or service.casefold() == "cterm"
     )
+
+
+def is_generic_denied(service: str, method: str) -> bool:
+    return f"{service.casefold()}.{method.casefold()}" in {item.casefold() for item in GENERIC_DENY}
 
 
 def is_ro_method(service: str, method: str) -> bool:
@@ -129,7 +162,18 @@ async def shared_folder_refs(backend: RpcBackend, uuid: str) -> list[str]:
         params = None
         if method in {"getShareList", "getList", "getModuleList"}:
             params = {"start": 0, "limit": -1}
-        result = await backend.call(service, method, params)
+        try:
+            result = await backend.call(service, method, params)
+        except OmvRpcError as exc:
+            # Compose is optional. Only skip when the service is absent; a broken
+            # installed plugin must still block deletion.
+            if (
+                label == "Compose"
+                and "service" in str(exc).casefold()
+                and "not found" in str(exc).casefold()
+            ):
+                continue
+            raise
         if _contains_uuid(result, uuid):
             refs.append(label)
     return refs

@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from omv_mcp.models import PlanResponse
+from omv_mcp.models import OperationResult, PlanResponse
 from omv_mcp.safety.guard import SafetyError
 from omv_mcp.settings import Mode, Settings
 from omv_mcp.state import AppState
@@ -91,6 +91,12 @@ async def test_rpc_guard_and_config_requires_modules(state: AppState) -> None:
     ctx: Any = Ctx(state)
     with pytest.raises(SafetyError, match="never exposed"):
         await rpc_call(ctx, "DiskMgmt", "wipe", {})
+    with pytest.raises(SafetyError, match="never exposed"):
+        await rpc_call(ctx, "Iptables", "deleteRule", {})
+    with pytest.raises(SafetyError, match="not available through rpc_call"):
+        await rpc_call(ctx, "Compose", "getFile", {})
+    with pytest.raises(SafetyError, match="not available through rpc_call"):
+        await rpc_call(ctx, "Wireguard", "getTunnelConfig", {})
     with pytest.raises(SafetyError, match="modules is required"):
         await config_apply(ctx, [])
 
@@ -101,6 +107,7 @@ def test_bundled_schema_handles_array_datamodels() -> None:
     schema = read_schema("System")
     assert isinstance(schema, dict)
     assert "rpc.system.gettopinfo" in schema
+    assert read_schema("../../etc/passwd") is None
 
 
 async def test_user_set_refuses_protected_name(state: AppState) -> None:
@@ -146,6 +153,66 @@ async def test_smb_update_preserves_unset_fields(tmp_path: Path) -> None:
     assert params["guest"] == "only"
     assert params["readonly"] is True
     assert params["comment"] == "keep"
+
+
+async def test_apt_changelog_waits_for_job(tmp_path: Path) -> None:
+    from omv_mcp.tools.jobs_apt import apt_changelog
+
+    settings = Settings(
+        ssh_host="127.0.0.1",
+        mode=Mode.READONLY,
+        audit_path=tmp_path / "audit.jsonl",
+    )
+    backend = FakeBackend(
+        {
+            ("Apt", "getChangeLog"): "bgstatus-changelog",
+            ("Exec", "getOutput"): {
+                "running": False,
+                "output": "package changelog",
+                "pos": 17,
+            },
+        }
+    )
+    state = AppState.create(settings, backend=backend)
+    ctx: Any = Ctx(state)
+
+    result = await apt_changelog(ctx, "pool/main/b/bash_5.2_amd64.deb")
+
+    assert result["output"] == "package changelog"
+    assert result["job_id"] == "bgstatus-changelog"
+    assert ("Exec", "getOutput") in [(service, method) for service, method, _ in backend.calls]
+
+
+async def test_writecache_flush_passes_rotate_and_waits(tmp_path: Path) -> None:
+    from omv_mcp.tools.plugins.writecache import writecache_flush
+
+    settings = Settings(
+        ssh_host="127.0.0.1",
+        mode=Mode.ADMIN,
+        elicit_admin=False,
+        audit_path=tmp_path / "audit.jsonl",
+    )
+    backend = FakeBackend(
+        {
+            ("System", "getInformation"): {"dirtyModules": []},
+            ("WriteCache", "doFlush"): "bgstatus-flush",
+            ("Exec", "getOutput"): {"running": False, "output": "flushed", "pos": 7},
+        }
+    )
+    state = AppState.create(settings, backend=backend)
+    ctx: Any = Ctx(state)
+
+    plan = await writecache_flush(ctx, rotate=True)
+    assert isinstance(plan, PlanResponse)
+    assert plan.rpc_calls[0]["params"] == {"rotate": True}
+    result = await writecache_flush(ctx, rotate=True, confirm_token=plan.confirm_token)
+
+    assert isinstance(result, OperationResult)
+    assert result.result["output"] == "flushed"
+    flush = next(
+        call[2] for call in backend.calls if call[0] == "WriteCache" and call[1] == "doFlush"
+    )
+    assert flush == {"rotate": True}
 
 
 async def test_compose_container_tools_use_id_and_hide_exec_token(tmp_path: Path) -> None:

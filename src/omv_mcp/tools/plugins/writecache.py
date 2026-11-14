@@ -28,26 +28,32 @@ async def writecache_settings(ctx: Context) -> Any:
 
 
 async def writecache_flush(
-    ctx: Context, confirm_token: str | None = None
+    ctx: Context, rotate: bool = False, confirm_token: str | None = None
 ) -> PlanResponse | OperationResult:
     state = get_state(ctx)
+    params = {"rotate": rotate}
 
     async def build() -> PlanSpec:
         return PlanSpec(
-            rpc_calls=[{"service": "WriteCache", "method": "doFlush", "params": {}}],
+            rpc_calls=[{"service": "WriteCache", "method": "doFlush", "params": params}],
             before=None,
-            after={"flushed": True},
+            after={"flushed": True, "rotate": rotate},
             changes=[{"field": "writecache", "before": None, "after": "flushed"}],
         )
 
     async def execute(plan: PlanSpec) -> ExecutionOutcome:
-        return ExecutionOutcome(result=await state.backend.call("WriteCache", "doFlush", {}))
+        job = await state.jobs.start("WriteCache", "doFlush", plan.rpc_calls[0]["params"])
+        result = await state.jobs.wait(job, state.settings.job_timeout_seconds, ctx)
+        return ExecutionOutcome(
+            result=result.model_dump(),
+            job_id=job if result.running else None,
+        )
 
     return await guarded_write(
         ctx=ctx,
         tool="writecache_flush",
         tier=Tier.OPERATOR,
-        args={},
+        args={"rotate": rotate},
         build=build,
         execute=execute,
         confirm_token=confirm_token,
@@ -65,7 +71,7 @@ TOOLS = (
     op(
         "writecache_flush",
         writecache_flush,
-        "Flush the writecache.",
+        "Flush the writecache; rotate=True rotates the backing files instead.",
         "WriteCache.doFlush",
         idempotent=False,
     ),
