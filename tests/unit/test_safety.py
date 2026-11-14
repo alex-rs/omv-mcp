@@ -15,6 +15,7 @@ from omv_mcp.safety.guard import (
     SafetyError,
     check_protected_group,
     check_protected_user,
+    is_generic_denied,
     is_never_exposed,
     is_ro_method,
     shared_folder_refs,
@@ -57,6 +58,16 @@ def test_canonical_args_excludes_context() -> None:
     )
 
 
+def test_canonical_args_binds_secret_values() -> None:
+    from pydantic import SecretStr
+
+    first = canonical_args({"password": SecretStr("first"), "name": "tester"})
+    second = canonical_args({"password": SecretStr("second"), "name": "tester"})
+    assert first != second
+    assert "first" in first
+    assert "**********" not in first
+
+
 def test_ro_method_policy() -> None:
     assert is_ro_method("System", "getInformation")
     assert is_ro_method("Plugin", "enumeratePlugins")
@@ -67,6 +78,14 @@ def test_ro_method_policy() -> None:
     assert not is_ro_method("Cterm", "get")
     assert is_never_exposed("DiskMgmt", "wipe")
     assert is_never_exposed("Cterm", "enumerateUsers")
+    assert is_never_exposed("Config", "set")
+    assert is_never_exposed("Config", "delete")
+    assert is_generic_denied("Apt", "upgrade")
+    assert not is_generic_denied("Apt", "install")
+    assert is_generic_denied("Compose", "setFile")
+    assert not is_generic_denied("Compose", "getFileList")
+    assert is_generic_denied("Exec", "getOutput")
+    assert is_generic_denied("ShareMgmt", "setFileACL")
 
 
 def test_protected_names() -> None:

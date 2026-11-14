@@ -24,12 +24,8 @@ def register_resources(mcp: FastMCP) -> None:
     @mcp.resource("omv://config/pending", mime_type="application/json")
     async def config_pending_resource(ctx: Context) -> str:
         state = get_state(ctx)
-        return json.dumps(
-            {
-                "dirty": bool(await dirty_modules(state)),
-                "modules": await dirty_modules(state),
-            }
-        )
+        modules = await dirty_modules(state)
+        return json.dumps({"dirty": bool(modules), "modules": modules})
 
     @mcp.resource("omv://logs/{name}", mime_type="text/plain")
     async def log_resource(name: str, ctx: Context) -> str:

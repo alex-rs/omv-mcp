@@ -19,6 +19,7 @@ _SECRET_KEY_PARTS = (
     "ssh_key",
     "wpapsk",
     "httppassword",
+    "execurl",
 )
 _REDACTED = "***"
 _PEM_PRIVATE = re.compile(

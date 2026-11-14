@@ -77,26 +77,41 @@ async def list_call(
     order: str = "asc",
     fields: Sequence[str] | str | None = None,
     ctx: Context | None = None,
-    native_search: bool = False,
+    native_paging: bool = False,
+    row_filter: Callable[[dict[str, Any]], bool] | None = None,
 ) -> Page[dict[str, Any]]:
     if limit < 1 or limit > 500:
         raise ValueError("limit must be between 1 and 500")
+    if offset < 0:
+        raise ValueError("offset must be non-negative")
     call_params = dict(params or {})
-    call_params.setdefault("start", 0)
-    call_params.setdefault("limit", -1)
-    if native_search and search:
-        call_params["search"] = search
-    result = await rpc_call_ro(state, service, method, call_params)
-    _, rows = normalize_list(result)
-    total, sliced = filter_sort_slice(
-        rows,
-        search=None if native_search else search,
-        sort=sort,
-        order=order,
-        limit=limit,
-        offset=offset,
-    )
-    projected = [project_fields(row, fields) for row in sliced]
+    if native_paging:
+        call_params["start"] = offset
+        call_params["limit"] = limit
+        if search:
+            call_params["search"] = search
+        if sort:
+            call_params["sortfield"] = sort
+            call_params["sortdir"] = order
+        result = await rpc_call_ro(state, service, method, call_params)
+        total, rows = normalize_list(result)
+        sliced = rows
+    else:
+        call_params.setdefault("start", 0)
+        call_params.setdefault("limit", -1)
+        result = await rpc_call_ro(state, service, method, call_params)
+        _, rows = normalize_list(result)
+        if row_filter is not None:
+            rows = [row for row in rows if row_filter(row)]
+        total, sliced = filter_sort_slice(
+            rows,
+            search=search,
+            sort=sort,
+            order=order,
+            limit=limit,
+            offset=offset,
+        )
+    projected = [redact(project_fields(row, fields)) for row in sliced]
     page = shape_page(
         projected,
         total=total,
@@ -202,6 +217,7 @@ async def guarded_write(
     execute: Callable[[PlanSpec], Awaitable[ExecutionOutcome]],
     confirm_token: str | None,
     apply: bool = False,
+    refresh_dirty: bool = True,
 ) -> PlanResponse | OperationResult:
     state = get_state(ctx)
     before_dirty = await dirty_modules(state)
@@ -273,9 +289,13 @@ async def guarded_write(
     try:
         async with state.write_lock:
             outcome = await execute(plan)
-            after_dirty = await dirty_modules(state)
+            after_dirty = await dirty_modules(state) if refresh_dirty else plan.dirty_before
             dirtied = sorted(set(after_dirty) - set(plan.dirty_before))
-            if plan.modules_expected and not set(dirtied) <= plan.modules_expected:
+            if (
+                refresh_dirty
+                and plan.modules_expected
+                and not set(dirtied) <= plan.modules_expected
+            ):
                 raise SafetyError(
                     "mutation dirtied unexpected modules: "
                     f"expected={sorted(plan.modules_expected)} dirtied={dirtied}"
@@ -331,6 +351,16 @@ async def guarded_write(
         )
         return result
     except Exception as exc:
+        pending = current_dirty
+        dirtied_on_error: list[str] = []
+        if refresh_dirty:
+            try:
+                refreshed = await dirty_modules(state)
+            except Exception:
+                refreshed = None
+            if refreshed is not None:
+                pending = refreshed
+                dirtied_on_error = sorted(set(pending) - set(plan.dirty_before))
         await state.audit.write(
             {
                 "tool": tool,
@@ -341,8 +371,8 @@ async def guarded_write(
                 "result": None,
                 "error": redact(str(exc)),
                 "job_id": None,
-                "dirtied_modules": [],
-                "pending_apply": current_dirty,
+                "dirtied_modules": dirtied_on_error,
+                "pending_apply": pending,
             }
         )
         raise

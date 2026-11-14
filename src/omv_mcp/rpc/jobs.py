@@ -56,8 +56,10 @@ class JobRunner:
         return result
 
     async def status(self, filename: str) -> bool:
-        result = await self._backend.call("Exec", "isRunning", {"filename": filename})
-        return bool(result)
+        # Exec.isRunning unlinks the status/output files once the job is done,
+        # so a read-only status check would destroy the output. Enumerate only
+        # lists running jobs and leaves finished status files alone.
+        return any(job.get("filename") == filename for job in await self.list_jobs())
 
     async def output(self, filename: str, pos: int = 0) -> JobResult:
         data = await self._output_once(filename, pos)

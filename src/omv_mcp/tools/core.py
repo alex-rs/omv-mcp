@@ -113,6 +113,7 @@ async def system_power(
         execute=execute,
         confirm_token=confirm_token,
         apply=False,
+        refresh_dirty=False,
     )
 
 
@@ -181,6 +182,7 @@ async def logs_list(
         order=order,
         fields=fields,
         ctx=ctx,
+        native_paging=True,
     )
 
 

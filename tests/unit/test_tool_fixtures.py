@@ -76,6 +76,8 @@ async def test_filesystems_and_health(state: AppState) -> None:
     ctx: Any = Ctx(state)
     page = await filesystems_list(ctx)
     assert page.total >= 1
+    with pytest.raises(ValueError, match="limit"):
+        await filesystems_list(ctx, limit=0)
     health = await storage_health_summary(ctx)
     assert health.hostname == "omv-test"
     assert health.disks
@@ -116,6 +118,8 @@ async def test_user_set_refuses_protected_name(state: AppState) -> None:
     ctx: Any = Ctx(state)
     with pytest.raises(SafetyError, match="protected user"):
         await user_set(ctx, "admin", comment="x")
+    with pytest.raises(SafetyError, match="privileged group"):
+        await user_set(ctx, "tester2", groups=["ssh"])
 
 
 async def test_smb_update_preserves_unset_fields(tmp_path: Path) -> None:
@@ -181,6 +185,198 @@ async def test_apt_changelog_waits_for_job(tmp_path: Path) -> None:
     assert result["output"] == "package changelog"
     assert result["job_id"] == "bgstatus-changelog"
     assert ("Exec", "getOutput") in [(service, method) for service, method, _ in backend.calls]
+
+
+async def test_list_tools_redact_rows(tmp_path: Path) -> None:
+    from omv_mcp.tools.shares import rsyncd_modules_list
+
+    settings = Settings(
+        ssh_host="127.0.0.1",
+        mode=Mode.READONLY,
+        audit_path=tmp_path / "audit.jsonl",
+    )
+    backend = FakeBackend(
+        {
+            ("Rsyncd", "getModuleList"): {
+                "total": 1,
+                "data": [{"name": "mod", "password": "hunter2", "comment": "password=x"}],
+            }
+        }
+    )
+    state = AppState.create(settings, backend=backend)
+    ctx: Any = Ctx(state)
+
+    page = await rsyncd_modules_list(ctx)
+    assert page.items[0]["password"] == "***"
+    assert page.items[0]["comment"] == "password=***"
+
+
+async def test_snapshots_filter_by_mount(tmp_path: Path) -> None:
+    from omv_mcp.tools.shares import snapshots_list
+
+    settings = Settings(
+        ssh_host="127.0.0.1",
+        mode=Mode.READONLY,
+        audit_path=tmp_path / "audit.jsonl",
+    )
+    backend = FakeBackend(
+        {
+            ("ShareMgmt", "enumerateAllSnapshots"): [
+                {"name": "a", "mntentref": "mount-a"},
+                {"name": "b", "mntentref": "mount-b"},
+            ]
+        }
+    )
+    state = AppState.create(settings, backend=backend)
+    ctx: Any = Ctx(state)
+
+    page = await snapshots_list(ctx, mntentref="mount-a")
+    assert page.total == 1
+    assert page.items[0]["name"] == "a"
+
+
+async def test_logs_list_pages_on_the_server(tmp_path: Path) -> None:
+    from omv_mcp.tools.core import logs_list
+
+    settings = Settings(
+        ssh_host="127.0.0.1",
+        mode=Mode.READONLY,
+        audit_path=tmp_path / "audit.jsonl",
+    )
+    backend = FakeBackend(
+        {
+            ("LogFile", "getList"): {
+                "total": 100,
+                "data": [{"rownum": 10, "message": "line"}],
+            }
+        }
+    )
+    state = AppState.create(settings, backend=backend)
+    ctx: Any = Ctx(state)
+
+    page = await logs_list(ctx, limit=5, offset=10, search="line", sort="rownum", order="desc")
+
+    assert page.total == 100
+    assert page.items == [{"rownum": 10, "message": "line"}]
+    assert backend.calls[-1][2] == {
+        "id": "syslog",
+        "start": 10,
+        "limit": 5,
+        "search": "line",
+        "sortfield": "rownum",
+        "sortdir": "desc",
+    }
+
+
+async def test_system_power_does_not_probe_after_reboot(tmp_path: Path) -> None:
+    from omv_mcp.tools.core import system_power
+
+    calls = {"info": 0}
+
+    def info(params: object) -> dict[str, list[str]]:
+        calls["info"] += 1
+        return {"dirtyModules": []}
+
+    settings = Settings(
+        ssh_host="127.0.0.1",
+        mode=Mode.ADMIN,
+        allow_power=True,
+        elicit_admin=False,
+        audit_path=tmp_path / "audit.jsonl",
+    )
+    backend = FakeBackend(
+        {
+            ("System", "getInformation"): info,
+            ("System", "reboot"): None,
+        }
+    )
+    state = AppState.create(settings, backend=backend)
+    ctx: Any = Ctx(state)
+
+    plan = await system_power(ctx, "reboot")
+    assert isinstance(plan, PlanResponse)
+    result = await system_power(ctx, "reboot", confirm_token=plan.confirm_token)
+
+    assert isinstance(result, OperationResult)
+    assert backend.calls[-1][:2] == ("System", "reboot")
+    assert calls["info"] == 3
+
+
+async def test_notifications_test_email_uses_email_service(tmp_path: Path) -> None:
+    from omv_mcp.tools.network import notifications_test_email
+
+    settings = Settings(
+        ssh_host="127.0.0.1",
+        mode=Mode.ADMIN,
+        elicit_admin=False,
+        audit_path=tmp_path / "audit.jsonl",
+    )
+    backend = FakeBackend(
+        {
+            ("System", "getInformation"): {"dirtyModules": []},
+            ("EmailNotification", "sendTestEmail"): None,
+        }
+    )
+    state = AppState.create(settings, backend=backend)
+    ctx: Any = Ctx(state)
+
+    plan = await notifications_test_email(ctx)
+    assert isinstance(plan, PlanResponse)
+    result = await notifications_test_email(ctx, confirm_token=plan.confirm_token)
+
+    assert isinstance(result, OperationResult)
+    assert ("EmailNotification", "sendTestEmail") in [
+        (service, method) for service, method, _ in backend.calls
+    ]
+
+
+async def test_job_output_caps_length(tmp_path: Path) -> None:
+    from omv_mcp.tools.jobs_apt import job_output
+
+    settings = Settings(
+        ssh_host="127.0.0.1",
+        mode=Mode.READONLY,
+        response_max_bytes=5000,
+        audit_path=tmp_path / "audit.jsonl",
+    )
+    backend = FakeBackend({("Exec", "getOutput"): {"output": "", "pos": 0, "running": True}})
+    state = AppState.create(settings, backend=backend)
+    ctx: Any = Ctx(state)
+
+    await job_output(ctx, "/tmp/bgstatusabc123", pos=-1, length=10_000_000)
+
+    params = backend.calls[-1][2]
+    assert params["length"] == 5000
+    assert params["pos"] == 0
+    with pytest.raises(SafetyError, match="invalid job filename"):
+        await job_output(ctx, "/etc/passwd")
+
+
+async def test_snapraid_arrays_fetches_array_config(tmp_path: Path) -> None:
+    from omv_mcp.tools.plugins.snapraid import snapraid_arrays
+
+    settings = Settings(
+        ssh_host="127.0.0.1",
+        mode=Mode.READONLY,
+        audit_path=tmp_path / "audit.jsonl",
+    )
+    backend = FakeBackend(
+        {
+            ("SnapRaid", "getArrayList"): {
+                "total": 1,
+                "data": [{"uuid": "array-1", "name": "main"}],
+            },
+            ("SnapRaid", "getArrayConfig"): {"config": "autosave 0\n"},
+        }
+    )
+    state = AppState.create(settings, backend=backend)
+    ctx: Any = Ctx(state)
+
+    result = await snapraid_arrays(ctx)
+
+    assert result["uuid"] == "array-1"
+    assert result["config"] == {"config": "autosave 0\n"}
+    assert backend.calls[-1][2] == {"uuid": "array-1"}
 
 
 async def test_writecache_flush_passes_rotate_and_waits(tmp_path: Path) -> None:

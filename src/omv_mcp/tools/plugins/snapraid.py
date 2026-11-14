@@ -14,20 +14,23 @@ from omv_mcp.tools._common import (
     get_state,
     guarded_write,
     list_call,
+    normalize_list,
     rpc_call_list,
     rpc_call_ro,
 )
 from omv_mcp.tools.registry import admin, op, ro
 
 
-async def snapraid_arrays(ctx: Context) -> Any:
+async def snapraid_arrays(ctx: Context, uuid: str | None = None) -> Any:
     state = get_state(ctx)
-    return redact(
-        {
-            "arrays": await rpc_call_list(state, "SnapRaid", "getArrayList"),
-            "config": await rpc_call_ro(state, "SnapRaid", "getArrayConfig"),
-        }
+    arrays = await rpc_call_list(state, "SnapRaid", "getArrayList")
+    _, rows = normalize_list(arrays)
+    if uuid is None and len(rows) == 1:
+        uuid = str(rows[0].get("uuid") or "") or None
+    config = (
+        await rpc_call_ro(state, "SnapRaid", "getArrayConfig", {"uuid": uuid}) if uuid else None
     )
+    return redact({"arrays": arrays, "uuid": uuid, "config": config})
 
 
 async def snapraid_drives(

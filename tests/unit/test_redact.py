@@ -53,6 +53,12 @@ def test_redacts_camel_case_omv_keys() -> None:
     assert "PRIV" not in redact_text("privatekeyserver=PRIV")
 
 
+def test_redacts_cterm_exec_urls() -> None:
+    data = {"name": "whoami", "execurl": "https://nas/cterm?hmac=secret"}
+    assert redact(data)["execurl"] == "***"
+    assert "hmac=secret" not in redact_text('{"execurl":"https://nas/cterm?hmac=secret"}')
+
+
 def test_redacts_json_and_xml_secret_text() -> None:
     assert redact_text('{"password": "abc"}') == '{"password": "***"}'
     assert redact_text("<privatekeyserver>PRIV</privatekeyserver>") == (

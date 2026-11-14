@@ -133,7 +133,7 @@ async def test_cron_and_config_refusal(ctx: Any) -> None:
     jobs = await cron_list(ctx, search="integration")
     assert jobs.total == 1
     uuid = jobs.items[0]["uuid"]
-    await cron_run(ctx, uuid)
+    await _execute(ctx, cron_run, uuid=uuid)
     await _execute(ctx, cron_delete, uuid=uuid)
     with pytest.raises(SafetyError, match="modules is required"):
         await config_apply(ctx, None)

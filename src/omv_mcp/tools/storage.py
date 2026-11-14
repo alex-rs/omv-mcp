@@ -97,6 +97,10 @@ async def filesystems_list(
     order: Literal["asc", "desc"] = "asc",
     fields: list[str] | Literal["all"] | None = None,
 ) -> Page[dict[str, Any]]:
+    if limit < 1 or limit > 500:
+        raise ValueError("limit must be between 1 and 500")
+    if offset < 0:
+        raise ValueError("offset must be non-negative")
     state = get_state(ctx)
     listed = await rpc_call_list(state, "FileSystemMgmt", "getList")
     mounted = await rpc_call_ro(state, "FileSystemMgmt", "enumerateMountedFilesystems")
@@ -124,7 +128,7 @@ async def filesystems_list(
         offset=offset,
     )
     return shape_page(
-        [project_fields(item, fields) for item in sliced],
+        [redact(project_fields(item, fields)) for item in sliced],
         total=total,
         offset=offset,
         limit=limit,
@@ -207,7 +211,7 @@ async def smart_disk(
         result["extended"] = await rpc_call_ro(
             state, "Smart", "getExtendedInformation", {"devicefile": devicefile}
         )
-    return redact(result)
+    return cap_payload(redact(result), state.settings.response_max_bytes)
 
 
 async def smart_settings(ctx: Context, devicefile: str | None = None) -> Any:
@@ -282,6 +286,8 @@ async def quota_get(
 async def storage_health_summary(ctx: Context) -> HealthSummary:
     state = get_state(ctx)
     info = await rpc_call_ro(state, "System", "getInformation")
+    if not isinstance(info, dict):
+        info = {}
     fs_result = await rpc_call_list(state, "FileSystemMgmt", "getList")
     disk_result = await rpc_call_list(state, "DiskMgmt", "getList")
     smart_result = await rpc_call_list(state, "Smart", "getList")
@@ -372,15 +378,19 @@ async def storage_health_summary(ctx: Context) -> HealthSummary:
         )
         for row in service_rows
     ]
+    raw_dirty = info.get("dirtyModules")
+    if isinstance(raw_dirty, dict):
+        dirty = sorted(str(key) for key in raw_dirty)
+    elif isinstance(raw_dirty, list):
+        dirty = sorted(str(module) for module in raw_dirty if module)
+    else:
+        dirty = []
+
     return HealthSummary(
         hostname=str(info.get("hostname") or ""),
         version=str(info.get("version") or ""),
         reboot_required=bool(info.get("rebootRequired")),
-        dirty_modules=sorted(
-            info.get("dirtyModules", {}).keys()
-            if isinstance(info.get("dirtyModules"), dict)
-            else info.get("dirtyModules", [])
-        ),
+        dirty_modules=dirty,
         available_pkg_updates=int(info.get("availablePkgUpdates") or 0),
         filesystems=filesystems,
         disks=disks,

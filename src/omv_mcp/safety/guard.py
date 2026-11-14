@@ -57,7 +57,10 @@ NEVER_EXPOSED: frozenset[str] = frozenset(
         "Exec.attach",
         "Apt.upload",
         "Plugin.upload",
+        "Config.set",
+        "Config.delete",
         "EnvVars.set",
+        "EnvVars.delete",
         "EnvVars.apply",
         "EnvVars.applyBg",
     }
@@ -107,6 +110,20 @@ GENERIC_DENY: frozenset[str] = frozenset(
         "Wireguard.downloadQrCode",
         "Wireguard.downloadAllQrCodes",
         "Wireguard.generateQrCodes",
+        # Apt.upgrade with an empty parameter set upgrades every package.
+        "Apt.upgrade",
+        # Dedicated job tools validate the status filename first.
+        "Exec.getOutput",
+        "Exec.isRunning",
+        "Exec.stop",
+        # Not exposed by v1 tools; snapshot restore/delete and ACL writes are
+        # destructive and setFileACL accepts arbitrary paths.
+        "ShareMgmt.setFileACL",
+        "ShareMgmt.deleteSnapshot",
+        "ShareMgmt.restoreSnapshot",
+        "ShareMgmt.fromSnapshot",
+        "ShareMgmt.setSnapshotLifecycle",
+        "ShareMgmt.createScheduledSnapshotTask",
     }
 )
 
@@ -119,6 +136,12 @@ def is_never_exposed(service: str, method: str) -> bool:
 
 
 def is_generic_denied(service: str, method: str) -> bool:
+    if service.casefold() == "compose" and not method.casefold().startswith(
+        ("get", "enumerate", "is")
+    ):
+        # Compose writes (up/down/pull, file edits, Docker commands) are out of
+        # scope in v1; dedicated read tools are the only Compose surface.
+        return True
     return f"{service.casefold()}.{method.casefold()}" in {item.casefold() for item in GENERIC_DENY}
 
 

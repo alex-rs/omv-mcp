@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import json
 import posixpath
+import re
 import shlex
 from collections.abc import Mapping
 from pathlib import Path
@@ -15,6 +16,8 @@ from omv_mcp.omv import OMV_RPC_PATH
 from omv_mcp.rpc.errors import OmvRpcError
 from omv_mcp.rpc.redact import redact_text
 from omv_mcp.settings import Settings
+
+_READ_METHOD_RE = re.compile(r"^(get|enumerate|is)[A-Z]|^getList$|^get$")
 
 
 def build_command(
@@ -63,8 +66,6 @@ def _parse_omv_output(stdout: str, stderr: str, exit_status: int = 0) -> Any:
             if isinstance(parsed, dict) and ("response" in parsed or "error" in parsed):
                 candidates.append(parsed)
     for parsed in reversed(candidates):
-        if "response" not in parsed and "error" not in parsed:
-            return parsed
         if "error" in parsed:
             error = parsed.get("error") or {}
             if isinstance(error, dict):
@@ -76,6 +77,9 @@ def _parse_omv_output(stdout: str, stderr: str, exit_status: int = 0) -> Any:
             raise OmvRpcError(redact_text(str(error)))
         if "response" in parsed:
             return parsed["response"]
+    # No OMV envelope: return the last plain JSON object (e.g. a bare result).
+    if candidates:
+        return candidates[-1]
     lines = [line.strip() for line in (stdout + "\n" + stderr).splitlines() if line.strip()]
     if not lines and exit_status == 0:
         return None
@@ -117,10 +121,17 @@ class SshBackend:
                 await conn.wait_closed()
 
     async def _run_command(
-        self, command: str, *, timeout: float | None = None
+        self,
+        command: str,
+        *,
+        timeout: float | None = None,
+        retry: bool = False,
     ) -> asyncssh.SSHCompletedProcess:
+        # Retry only read-only RPCs. If a mutating command was interrupted after
+        # it reached OMV, replaying it could reboot, reinstall, or delete twice.
+        attempts = 2 if retry else 1
         last_error: Exception | None = None
-        for attempt in range(2):
+        for attempt in range(attempts):
             try:
                 conn = await self._ensure_connection()
                 return await conn.run(command, check=False, timeout=timeout, encoding=None)
@@ -142,7 +153,11 @@ class SshBackend:
     ) -> Any:
         command = build_command(self._settings.rpc_user, service, method, params)
         try:
-            result = await self._run_command(command, timeout=timeout)
+            result = await self._run_command(
+                command,
+                timeout=timeout,
+                retry=bool(_READ_METHOD_RE.match(method)),
+            )
             return _parse_omv_output(
                 _decode(result.stdout), _decode(result.stderr), result.exit_status or 0
             )

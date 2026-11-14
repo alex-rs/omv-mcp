@@ -9,7 +9,17 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from pydantic import SecretStr
+
 from omv_mcp.safety.guard import SafetyError
+
+
+def _canonical_default(value: Any) -> str:
+    # SecretStr.__str__ is masked, which would make every secret value produce
+    # the same token-bound argument string.
+    if isinstance(value, SecretStr):
+        return value.get_secret_value()
+    return str(value)
 
 
 def canonical_args(args: dict[str, Any]) -> str:
@@ -18,7 +28,7 @@ def canonical_args(args: dict[str, Any]) -> str:
         for key, value in args.items()
         if key not in {"confirm_token", "ctx"} and not key.startswith("_")
     }
-    return json.dumps(cleaned, sort_keys=True, separators=(",", ":"), default=str)
+    return json.dumps(cleaned, sort_keys=True, separators=(",", ":"), default=_canonical_default)
 
 
 @dataclass

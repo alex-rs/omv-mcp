@@ -72,6 +72,27 @@ async def test_stdout_response_and_session_header(monkeypatch: pytest.MonkeyPatc
     assert conn.commands
 
 
+async def test_plain_json_on_stderr_does_not_mask_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conn = Conn(
+        [
+            Result(
+                b'{"response":{"hostname":"omv-test"}}\n',
+                b'{"level":"warning","message":"noise"}\n',
+            )
+        ]
+    )
+
+    async def connect(**kwargs: Any) -> Conn:
+        return conn
+
+    monkeypatch.setattr(asyncssh, "connect", connect)
+    assert await SshBackend(settings(monkeypatch)).call("System", "getInformation") == {
+        "hostname": "omv-test"
+    }
+
+
 async def test_error_json_on_stderr(monkeypatch: pytest.MonkeyPatch) -> None:
     conn = Conn([Result(b"", b'{"error":{"code":7,"message":"nope","trace":"secret"}}\n', 1)])
 
@@ -120,9 +141,9 @@ async def test_non_json_and_empty(monkeypatch: pytest.MonkeyPatch) -> None:
         await backend.call("A", "b")
 
 
-async def test_reconnect_once(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_reconnect_once_for_read(monkeypatch: pytest.MonkeyPatch) -> None:
     first = Conn([OSError("closed")])
-    second = Conn([Result(b'{"response":true}\n')])
+    second = Conn([Result(b'{"response":{"hostname":"omv-test"}}\n')])
     created: list[Conn] = [first, second]
 
     async def connect(**kwargs: Any) -> Conn:
@@ -130,7 +151,21 @@ async def test_reconnect_once(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(asyncssh, "connect", connect)
     backend = SshBackend(settings(monkeypatch))
-    assert await backend.call("System", "noop") is True
+    assert await backend.call("System", "getInformation") == {"hostname": "omv-test"}
+    assert first.closed
+    assert created == []
+
+
+async def test_mutating_call_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    first = Conn([OSError("closed")])
+    created: list[Conn] = [first]
+
+    async def connect(**kwargs: Any) -> Conn:
+        return created.pop(0)
+
+    monkeypatch.setattr(asyncssh, "connect", connect)
+    with pytest.raises(OmvRpcError, match="closed"):
+        await SshBackend(settings(monkeypatch)).call("System", "reboot", {"delay": 0})
     assert first.closed
     assert created == []
 

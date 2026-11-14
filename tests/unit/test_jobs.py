@@ -62,6 +62,19 @@ async def test_job_error_includes_filename_and_tail() -> None:
         await JobRunner(backend).wait("/tmp/job", 5)
 
 
+async def test_status_uses_running_enumeration() -> None:
+    backend = FakeBackend(
+        {
+            ("Exec", "enumerate"): {
+                "/tmp/bgstatus-running": {"startTime": 1},
+            }
+        }
+    )
+    runner = JobRunner(backend)
+    assert await runner.status("/tmp/bgstatus-running") is True
+    assert await runner.status("/tmp/bgstatus-finished") is False
+
+
 async def test_list_jobs_normalizes_strings() -> None:
     backend = FakeBackend({("Exec", "enumerate"): ["a", "b"]})
     assert await JobRunner(backend).list_jobs() == [{"filename": "a"}, {"filename": "b"}]

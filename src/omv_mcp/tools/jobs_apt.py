@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import re
 from typing import Any, Literal
 
 from fastmcp import Context
@@ -21,6 +22,12 @@ from omv_mcp.tools._common import (
 from omv_mcp.tools.registry import admin, op, ro
 
 _LIST = dict
+_BG_STATUS_RE = re.compile(r"^/tmp/bgstatus[A-Za-z0-9]+$")
+
+
+def _check_job_filename(filename: str) -> None:
+    if not _BG_STATUS_RE.fullmatch(filename):
+        raise SafetyError("invalid job filename")
 
 
 async def cron_list(
@@ -264,17 +271,20 @@ async def jobs_list(ctx: Context) -> Any:
 
 
 async def job_status(ctx: Context, filename: str) -> dict[str, Any]:
+    _check_job_filename(filename)
     state = get_state(ctx)
     return {"filename": filename, "running": await state.jobs.status(filename)}
 
 
 async def job_output(ctx: Context, filename: str, pos: int = 0, length: int = 16384) -> Any:
+    _check_job_filename(filename)
     state = get_state(ctx)
+    capped = max(1024, min(length, state.settings.response_max_bytes))
     result = await rpc_call_ro(
         state,
         "Exec",
         "getOutput",
-        {"filename": filename, "pos": pos, "length": max(1024, length)},
+        {"filename": filename, "pos": max(0, pos), "length": capped},
     )
     return redact(result)
 
@@ -282,12 +292,15 @@ async def job_output(ctx: Context, filename: str, pos: int = 0, length: int = 16
 async def job_stop(
     ctx: Context, filename: str, confirm_token: str | None = None
 ) -> PlanResponse | OperationResult:
+    _check_job_filename(filename)
     state = get_state(ctx)
 
     async def build() -> PlanSpec:
+        if not await state.jobs.status(filename):
+            raise SafetyError(f"job {filename} is not running")
         return PlanSpec(
             rpc_calls=[{"service": "Exec", "method": "stop", "params": {"filename": filename}}],
-            before={"filename": filename, "running": await state.jobs.status(filename)},
+            before={"filename": filename, "running": True},
             after={"filename": filename, "running": False},
             changes=[{"field": "running", "before": True, "after": False}],
         )
@@ -386,8 +399,10 @@ async def apt_upgrade(
         if not packages:
             raise SafetyError("packages must be an explicit non-empty list")
         risky = sorted(
-            set(packages)
-            & {"openmediavault", "linux-image", "docker", "systemd", "openssh", "network-manager"}
+            package
+            for package in packages
+            if package in {"openmediavault", "systemd", "openssh", "network-manager"}
+            or package.startswith(("linux-image", "linux-headers", "docker", "containerd"))
         )
         return PlanSpec(
             rpc_calls=[{"service": "Apt", "method": "install", "params": {"packages": packages}}],
@@ -444,6 +459,8 @@ async def plugin_install(
     state = get_state(ctx)
 
     async def build() -> PlanSpec:
+        if not packages:
+            raise SafetyError("packages must be an explicit non-empty list")
         return PlanSpec(
             rpc_calls=[
                 {"service": "Plugin", "method": "install", "params": {"packages": packages}}
@@ -477,6 +494,8 @@ async def plugin_remove(
     state = get_state(ctx)
 
     async def build() -> PlanSpec:
+        if not packages:
+            raise SafetyError("packages must be an explicit non-empty list")
         return PlanSpec(
             rpc_calls=[{"service": "Plugin", "method": "remove", "params": {"packages": packages}}],
             before=None,
@@ -511,7 +530,7 @@ TOOLS = (
     ro("rsync_jobs_list", rsync_jobs_list, "List rsync jobs.", "Rsync.getList"),
     ro("rsync_job_get", rsync_job_get, "Return an rsync job.", "Rsync.get"),
     op("rsync_run", rsync_run, "Run an rsync job now.", "Rsync.execute", idempotent=False),
-    ro("jobs_list", jobs_list, "List running and finished engine jobs.", "Exec.enumerate"),
+    ro("jobs_list", jobs_list, "List running engine jobs.", "Exec.enumerate"),
     ro("job_status", job_status, "Return whether a job is running.", "Exec.isRunning"),
     ro("job_output", job_output, "Return job output.", "Exec.getOutput"),
     op("job_stop", job_stop, "Stop a running engine job.", "Exec.stop", idempotent=False),

@@ -78,6 +78,8 @@ async def probe_plugins(settings: Settings) -> frozenset[str]:
         elif isinstance(result, list):
             rows = [row for row in result if isinstance(row, dict)]
         for row in rows:
+            if row.get("installed") is not True:
+                continue
             name = str(row.get("name") or row.get("package") or "")
             if name in ALL_PLUGIN_PACKAGES.values():
                 packages.add(name)

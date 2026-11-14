@@ -6,7 +6,14 @@ from fastmcp import Context
 
 from omv_mcp.models import Page
 from omv_mcp.rpc.redact import redact, redact_text
-from omv_mcp.tools._common import get_state, list_call, normalize_list, rpc_call_list, rpc_call_ro
+from omv_mcp.tools._common import (
+    cap_payload,
+    get_state,
+    list_call,
+    normalize_list,
+    rpc_call_list,
+    rpc_call_ro,
+)
 from omv_mcp.tools.registry import ro
 
 
@@ -33,9 +40,7 @@ async def compose_files_list(
     )
 
 
-async def compose_file_get(
-    ctx: Context, uuid: str | None = None, name: str | None = None
-) -> dict[str, Any]:
+async def compose_file_get(ctx: Context, uuid: str | None = None, name: str | None = None) -> Any:
     state = get_state(ctx)
     if uuid is None:
         files = await rpc_call_list(state, "Compose", "getFileList")
@@ -50,8 +55,10 @@ async def compose_file_get(
     result = await rpc_call_ro(state, "Compose", "getFile", {"uuid": uuid})
     if isinstance(result, dict):
         body = result.get("body") or result.get("content") or ""
-        return {"uuid": uuid, "name": result.get("name", name), "content": redact_text(str(body))}
-    return {"uuid": uuid, "name": name, "content": redact_text(str(result))}
+        output = {"uuid": uuid, "name": result.get("name", name), "content": redact_text(str(body))}
+    else:
+        output = {"uuid": uuid, "name": name, "content": redact_text(str(result))}
+    return cap_payload(output, state.settings.response_max_bytes)
 
 
 async def compose_containers(ctx: Context) -> Any:
@@ -62,14 +69,15 @@ async def compose_containers(ctx: Context) -> Any:
     return redact([{k: v for k, v in row.items() if k != "execurl"} for row in rows])
 
 
-async def compose_container_log(
-    ctx: Context, id: str, name: str, tail: int = 200
-) -> dict[str, Any]:
+async def compose_container_log(ctx: Context, id: str, name: str, tail: int = 200) -> Any:
     state = get_state(ctx)
     data = await state.backend.fetch_file("Compose", "getContainerLog", {"id": id, "name": name})
     text = redact_text(data.decode("utf-8", "replace"))
     lines = text.splitlines()[-max(1, min(tail, 5000)) :]
-    return {"id": id, "name": name, "lines": len(lines), "content": "\n".join(lines)}
+    return cap_payload(
+        {"id": id, "name": name, "lines": len(lines), "content": "\n".join(lines)},
+        state.settings.response_max_bytes,
+    )
 
 
 async def compose_stats(ctx: Context) -> Any:

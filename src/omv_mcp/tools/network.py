@@ -81,12 +81,12 @@ async def certificates_list(ctx: Context) -> Any:
 
 
 async def notifications_test_email(
-    ctx: Context, id: str | None = None, confirm_token: str | None = None
+    ctx: Context, confirm_token: str | None = None
 ) -> PlanResponse | OperationResult:
     state = get_state(ctx)
-    service = "Notification"
+    service = "EmailNotification"
     method = "sendTestEmail"
-    params = {"id": id} if id else {}
+    params: dict[str, Any] = {}
 
     async def build() -> PlanSpec:
         return PlanSpec(
@@ -103,7 +103,7 @@ async def notifications_test_email(
         ctx=ctx,
         tool="notifications_test_email",
         tier=Tier.OPERATOR,
-        args={"id": id},
+        args={},
         build=build,
         execute=execute,
         confirm_token=confirm_token,
@@ -124,6 +124,13 @@ async def rpc_describe(ctx: Context, service: str, method: str | None = None) ->
             schema = {
                 key: value
                 for key, value in schema.items()
+                if key.rsplit(".", 1)[-1].lower() == method.lower()
+            }
+        if not schema:
+            common = read_schema("common") or {}
+            schema = {
+                key: value
+                for key, value in common.items()
                 if key.rsplit(".", 1)[-1].lower() == method.lower()
             }
     return {
@@ -252,7 +259,6 @@ TOOLS = (
         "notifications_test_email",
         notifications_test_email,
         "Send a test notification email.",
-        "Notification.sendTestEmail",
         "EmailNotification.sendTestEmail",
     ),
     ro("rpc_describe", rpc_describe, "Describe an OMV RPC service and its bundled schema.", "none"),

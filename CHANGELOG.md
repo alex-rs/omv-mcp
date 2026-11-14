@@ -12,3 +12,5 @@
 - Shared-folder deletion no longer fails when the compose plugin is not installed.
 - Operator and admin writes for shares, users, jobs, packages, plugins, SMART, SnapRAID and writecache.
 - Disposable Docker/QEMU OMV 8 test VM with seeded production-like state.
+- Pre-use hardening: plugin tools only register for installed packages; `Exec.isRunning` dict results are parsed correctly; `notifications_test_email` targets `EmailNotification`; SnapRAID array config uses its array UUID; confirm tokens bind actual secret values; cterm exec URLs are redacted; SSH retries only read-only RPCs; power actions do not probe after firing; `logs_list` pages server-side.
+- Read-only list tools redact row contents, job filenames are validated before `Exec.*`, and generic `rpc_call` refuses config-database writes, Compose writes, Exec job internals, destructive snapshot/ACL methods, `Apt.upgrade` and environment-variable writes.

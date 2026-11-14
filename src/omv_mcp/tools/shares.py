@@ -20,6 +20,7 @@ from omv_mcp.safety.modes import Tier
 from omv_mcp.tools._common import (
     ExecutionOutcome,
     PlanSpec,
+    cap_payload,
     get_state,
     guarded_write,
     list_call,
@@ -112,13 +113,12 @@ async def shared_folder_create(
     mntentref: str,
     comment: str = "",
     reldirpath: str | None = None,
-    uuid: str | None = None,
     apply: bool = False,
     confirm_token: str | None = None,
 ) -> PlanResponse | OperationResult:
     state = get_state(ctx)
     params = {
-        "uuid": uuid or NEW_UUID,
+        "uuid": NEW_UUID,
         "name": name,
         "reldirpath": reldirpath or name,
         "comment": comment,
@@ -194,15 +194,18 @@ async def shared_folder_privileges_get(
     ctx: Context, uuid: str, role: str | None = None, name: str | None = None
 ) -> Any:
     state = get_state(ctx)
+    if (role is None) != (name is None):
+        raise ValueError("role and name must be provided together")
     if role and name:
-        return redact(
-            await rpc_call_ro(
-                state,
-                "ShareMgmt",
-                "getPrivilegesByRole",
-                {"uuid": uuid, "role": role, "name": name},
-            )
+        result = await rpc_call_ro(
+            state,
+            "ShareMgmt",
+            "getPrivilegesByRole",
+            {"role": role, "name": name},
         )
+        if isinstance(result, list):
+            result = [row for row in result if isinstance(row, dict) and row.get("uuid") == uuid]
+        return redact(result)
     return redact(await rpc_call_ro(state, "ShareMgmt", "getPrivileges", {"uuid": uuid}))
 
 
@@ -243,9 +246,9 @@ async def shared_folder_privileges_set(
 
 
 async def shared_folder_acl_get(ctx: Context, uuid: str, file: str = "") -> Any:
-    return redact(
-        await rpc_call_ro(get_state(ctx), "ShareMgmt", "getFileACL", {"uuid": uuid, "file": file})
-    )
+    state = get_state(ctx)
+    result = await rpc_call_ro(state, "ShareMgmt", "getFileACL", {"uuid": uuid, "file": file})
+    return cap_payload(redact(result), state.settings.response_max_bytes)
 
 
 async def snapshots_list(
@@ -258,12 +261,10 @@ async def snapshots_list(
     order: Literal["asc", "desc"] = "asc",
     fields: list[str] | Literal["all"] | None = None,
 ) -> Page[dict[str, Any]]:
-    params = {"mntentref": mntentref} if mntentref else None
     return await list_call(
         get_state(ctx),
         "ShareMgmt",
         "enumerateAllSnapshots",
-        params=params,
         limit=limit,
         offset=offset,
         search=search,
@@ -271,13 +272,13 @@ async def snapshots_list(
         order=order,
         fields=fields,
         ctx=ctx,
+        row_filter=(None if mntentref is None else lambda row: row.get("mntentref") == mntentref),
     )
 
 
 async def snapshot_create(
     ctx: Context,
     uuid: str,
-    apply: bool = False,
     confirm_token: str | None = None,
 ) -> PlanResponse | OperationResult:
     state = get_state(ctx)
@@ -302,6 +303,8 @@ async def snapshot_create(
         )
         if fs is None:
             raise SafetyError("cannot resolve the shared folder filesystem")
+        if fs.get("type") != "btrfs":
+            raise SafetyError("snapshots require a btrfs filesystem")
         if fs.get("mountpoint") == "/":
             raise SafetyError("refusing to snapshot the root filesystem")
         return PlanSpec(
@@ -321,11 +324,10 @@ async def snapshot_create(
         ctx=ctx,
         tool="snapshot_create",
         tier=Tier.OPERATOR,
-        args={"uuid": uuid, "apply": apply},
+        args={"uuid": uuid},
         build=build,
         execute=execute,
         confirm_token=confirm_token,
-        apply=apply,
     )
 
 
@@ -901,7 +903,7 @@ async def user_set(
     if uid is not None and uid < 1000:
         raise SafetyError("refusing to assign a system uid")
     for group in groups or []:
-        if group in {"root", "admin", "sudo"}:
+        if group in {"root", "admin", "sudo", "ssh", "_ssh"}:
             raise SafetyError(f"refusing to add user to privileged group {group}")
     base_args: dict[str, Any] = {"name": name, "apply": apply}
     for key, value in (

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from omv_mcp.server import build_server
+import pytest
+
+from omv_mcp.server import build_server, probe_plugins
 from omv_mcp.settings import Mode, Settings
+from tests.unit.fakes import FakeBackend
 
 
 async def test_readonly_server_has_only_readonly_tools() -> None:
@@ -24,6 +27,27 @@ async def test_admin_server_includes_writes_and_power() -> None:
     assert "config_apply" in names
     assert "system_power" in names
     assert "user_delete" in names
+
+
+async def test_probe_plugins_ignores_available_not_installed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    backend = FakeBackend(
+        {
+            ("Plugin", "getList"): {
+                "total": 3,
+                "data": [
+                    {"name": "openmediavault-mergerfs", "installed": True},
+                    {"name": "openmediavault-snapraid", "installed": False},
+                    {"name": "openmediavault-writecache"},
+                ],
+            }
+        }
+    )
+    monkeypatch.setattr("omv_mcp.server.make_backend", lambda _settings: backend)
+    detected = await probe_plugins(Settings(ssh_host="127.0.0.1"))
+    assert detected == frozenset({"openmediavault-mergerfs"})
+    assert backend.closed
 
 
 async def test_plugin_tools_only_when_installed() -> None:
