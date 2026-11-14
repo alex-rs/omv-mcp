@@ -14,7 +14,7 @@ from omv_mcp import __version__
 from omv_mcp.rpc.errors import OmvRpcError
 from omv_mcp.rpc.redact import redact_text
 from omv_mcp.safety.guard import SafetyError
-from omv_mcp.settings import Settings
+from omv_mcp.settings import Mode, Settings
 from omv_mcp.state import AppState, make_backend
 from omv_mcp.tools.registry import ALL_PLUGIN_PACKAGES, Tier, iter_tools
 
@@ -122,10 +122,21 @@ def build_server(
             continue
         if spec.tier > settings.mode_tier:
             continue
+        annotations = spec.annotations
+        if spec.name == "rpc_call" and settings.mode is Mode.ADMIN:
+            # rpc_call executes non-read-only RPCs in admin mode, so it must not
+            # advertise readOnlyHint: clients may use that hint for auto-approval.
+            annotations = annotations.model_copy(
+                update={
+                    "read_only_hint": False,
+                    "destructive_hint": True,
+                    "idempotent_hint": False,
+                }
+            )
         mcp.tool(
             name=spec.name,
             description=spec.description,
-            annotations=spec.annotations,
+            annotations=annotations,
             tags={Tier(spec.tier).name.lower()},
         )(wrap_errors(spec.fn))
 

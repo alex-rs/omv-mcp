@@ -157,6 +157,7 @@ async def shared_folder_delete(
     confirm_token: str | None = None,
 ) -> PlanResponse | OperationResult:
     state = get_state(ctx)
+    params = {"uuid": uuid, "recursive": False}
 
     async def build() -> PlanSpec:
         refs = await shared_folder_refs(state.backend, uuid)
@@ -164,7 +165,7 @@ async def shared_folder_delete(
             raise SafetyError("refusing: shared folder is referenced by " + ", ".join(refs))
         before = await rpc_call_ro(state, "ShareMgmt", "get", {"uuid": uuid})
         return PlanSpec(
-            rpc_calls=[{"service": "ShareMgmt", "method": "delete", "params": {"uuid": uuid}}],
+            rpc_calls=[{"service": "ShareMgmt", "method": "delete", "params": params}],
             before=before,
             after=None,
             changes=[{"field": "uuid", "before": uuid, "after": None}],
@@ -172,11 +173,7 @@ async def shared_folder_delete(
         )
 
     async def execute(plan: PlanSpec) -> ExecutionOutcome:
-        return ExecutionOutcome(
-            result=await state.backend.call(
-                "ShareMgmt", "delete", {"uuid": uuid, "recursive": False}
-            )
-        )
+        return ExecutionOutcome(result=await state.backend.call("ShareMgmt", "delete", params))
 
     return await guarded_write(
         ctx=ctx,

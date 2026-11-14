@@ -96,6 +96,10 @@ async def test_rpc_guard_and_config_requires_modules(state: AppState) -> None:
     with pytest.raises(SafetyError, match="never exposed"):
         await rpc_call(ctx, "Iptables", "deleteRule", {})
     with pytest.raises(SafetyError, match="not available through rpc_call"):
+        await rpc_call(ctx, "Config", "applyChanges", {"modules": ["ssh"]})
+    with pytest.raises(SafetyError, match="not available through rpc_call"):
+        await rpc_call(ctx, "Config", "revertChangesBg", {"filename": ""})
+    with pytest.raises(SafetyError, match="not available through rpc_call"):
         await rpc_call(ctx, "Compose", "getFile", {})
     with pytest.raises(SafetyError, match="not available through rpc_call"):
         await rpc_call(ctx, "Wireguard", "getTunnelConfig", {})

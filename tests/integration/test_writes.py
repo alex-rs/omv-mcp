@@ -75,7 +75,10 @@ async def test_shared_folder_smb_roundtrip(ctx: Any) -> None:
     assert updated.items[0]["comment"] == "changed"
     assert updated.items[0]["guest"] == "only"
     await _execute(ctx, smb_share_delete, uuid=shares.items[0]["uuid"])
-    await _execute(ctx, shared_folder_delete, uuid=uuid)
+    delete_plan = await shared_folder_delete(ctx, uuid=uuid)
+    assert isinstance(delete_plan, PlanResponse)
+    assert delete_plan.rpc_calls[0]["params"] == {"uuid": uuid, "recursive": False}
+    await shared_folder_delete(ctx, uuid=uuid, confirm_token=delete_plan.confirm_token)
 
 
 async def test_nfs_and_rsyncd_roundtrip(ctx: Any) -> None:

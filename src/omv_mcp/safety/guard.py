@@ -110,6 +110,12 @@ GENERIC_DENY: frozenset[str] = frozenset(
         "Wireguard.downloadQrCode",
         "Wireguard.downloadAllQrCodes",
         "Wireguard.generateQrCodes",
+        # Config apply/revert are only reachable through config_apply and
+        # config_revert, which validate the module list and wait for the job.
+        "Config.applyChanges",
+        "Config.applyChangesBg",
+        "Config.revertChanges",
+        "Config.revertChangesBg",
         # Apt.upgrade with an empty parameter set upgrades every package.
         "Apt.upgrade",
         # Dedicated job tools validate the status filename first.

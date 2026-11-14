@@ -86,18 +86,17 @@ async def notifications_test_email(
     state = get_state(ctx)
     service = "EmailNotification"
     method = "sendTestEmail"
-    params: dict[str, Any] = {}
 
     async def build() -> PlanSpec:
         return PlanSpec(
-            rpc_calls=[{"service": service, "method": method, "params": params}],
+            rpc_calls=[{"service": service, "method": method, "params": {}}],
             before=None,
             after={"test_email": True},
             changes=[{"field": "test_email", "before": None, "after": True}],
         )
 
     async def execute(plan: PlanSpec) -> ExecutionOutcome:
-        return ExecutionOutcome(result=await state.backend.call(service, method, params))
+        return ExecutionOutcome(result=await state.backend.call(service, method))
 
     return await guarded_write(
         ctx=ctx,

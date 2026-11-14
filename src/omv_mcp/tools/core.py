@@ -375,7 +375,12 @@ TOOLS = (
         "Config.revertChangesBg",
         destructive=True,
     ),
-    ro("logs_list", logs_list, "List available log files.", "LogFile.getList"),
+    ro(
+        "logs_list",
+        logs_list,
+        "Return paged log entries for a registered log id (default syslog).",
+        "LogFile.getList",
+    ),
     ro(
         "logs_read",
         logs_read,
