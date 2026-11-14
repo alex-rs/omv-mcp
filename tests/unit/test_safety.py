@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
+from omv_mcp.models import PlanResponse
 from omv_mcp.safety.audit import AuditLog
 from omv_mcp.safety.confirm import ConfirmManager, canonical_args
 from omv_mcp.safety.guard import (
@@ -16,6 +18,7 @@ from omv_mcp.safety.guard import (
     is_ro_method,
     shared_folder_refs,
 )
+from omv_mcp.settings import Settings
 from tests.unit.fakes import FakeBackend
 
 
@@ -113,3 +116,54 @@ def test_guard_is_case_insensitive() -> None:
     assert is_never_exposed("cterm", "get")
     assert not is_ro_method("wireguard", "getTunnelConfig")
     assert is_ro_method("system", "getInformation")
+
+
+async def test_guarded_write_rejects_unexpected_dirty_module(tmp_path: Path) -> None:
+    from omv_mcp.tools._common import ExecutionOutcome, PlanSpec, guarded_write
+    from tests.unit.test_tool_fixtures import Ctx
+
+    dirty = {"modules": ["ssh"]}
+
+    def info(params: object) -> dict[str, list[str]]:
+        return {"dirtyModules": list(dirty["modules"])}
+
+    settings = Settings(ssh_host="127.0.0.1", elicit_admin=False, audit_path=tmp_path / "a.jsonl")
+    backend = FakeBackend({("System", "getInformation"): info})
+    state = __import__("omv_mcp.state", fromlist=["AppState"]).AppState.create(
+        settings, backend=backend
+    )
+    ctx: Any = Ctx(state)
+
+    async def build() -> PlanSpec:
+        return PlanSpec(
+            rpc_calls=[],
+            before=None,
+            after={"x": 1},
+            changes=[],
+            modules_expected={"user"},
+        )
+
+    async def execute(plan: PlanSpec) -> ExecutionOutcome:
+        dirty["modules"] = ["shares", "ssh"]
+        return ExecutionOutcome()
+
+    plan = await guarded_write(
+        ctx=ctx,
+        tool="t",
+        tier=0,
+        args={},
+        build=build,
+        execute=execute,
+        confirm_token=None,
+    )
+    assert isinstance(plan, PlanResponse)
+    with pytest.raises(SafetyError, match="unexpected modules"):
+        await guarded_write(
+            ctx=ctx,
+            tool="t",
+            tier=0,
+            args={},
+            build=build,
+            execute=execute,
+            confirm_token=plan.confirm_token,
+        )

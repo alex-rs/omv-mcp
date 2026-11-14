@@ -132,7 +132,7 @@ async def shared_folder_create(
             before=None,
             after={"name": name, "mntentref": mntentref},
             changes=[{"field": "name", "before": None, "after": name}],
-            modules_expected={"shares"},
+            modules_expected={"sharedfolders", "systemd"},
         )
 
     async def execute(plan: PlanSpec) -> ExecutionOutcome:
@@ -887,7 +887,7 @@ async def user_set(
                 for k, v in params.items()
                 if k != "password"
             ],
-            modules_expected={"user"},
+            modules_expected={"postfix", "user"},
         )
 
     async def execute(plan: PlanSpec) -> ExecutionOutcome:
@@ -950,7 +950,7 @@ async def group_set(
             changes=[
                 {"field": k, "before": (before or {}).get(k), "after": v} for k, v in params.items()
             ],
-            modules_expected={"user"},
+            modules_expected={"postfix", "user"},
         )
 
     async def execute(plan: PlanSpec) -> ExecutionOutcome:

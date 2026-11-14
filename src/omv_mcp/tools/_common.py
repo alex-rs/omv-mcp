@@ -253,27 +253,32 @@ async def guarded_write(
             outcome = await execute(plan)
             after_dirty = await dirty_modules(state)
             dirtied = sorted(set(after_dirty) - set(plan.dirty_before))
-        applied: list[str] = []
-        if apply:
-            if plan.dirty_before:
+            if plan.modules_expected and not set(dirtied) <= plan.modules_expected:
                 raise SafetyError(
-                    "apply=True refused: modules already dirty before this call: "
-                    f"{plan.dirty_before}"
+                    "mutation dirtied unexpected modules: "
+                    f"expected={sorted(plan.modules_expected)} dirtied={dirtied}"
                 )
-            if not dirtied:
-                raise SafetyError("no OMV config module was dirtied")
-            applied_result = await state.backend.call(
-                "Config",
-                "applyChanges",
-                {"modules": dirtied, "force": False},
-                timeout=300,
-            )
-            applied = (
-                [str(item) for item in applied_result]
-                if isinstance(applied_result, list)
-                else dirtied
-            )
-            after_dirty = await dirty_modules(state)
+            applied: list[str] = []
+            if apply:
+                if plan.dirty_before:
+                    raise SafetyError(
+                        "apply=True refused: modules already dirty before this call: "
+                        f"{plan.dirty_before}"
+                    )
+                if not dirtied:
+                    raise SafetyError("no OMV config module was dirtied")
+                applied_result = await state.backend.call(
+                    "Config",
+                    "applyChanges",
+                    {"modules": dirtied, "force": False},
+                    timeout=300,
+                )
+                applied = (
+                    [str(item) for item in applied_result]
+                    if isinstance(applied_result, list)
+                    else dirtied
+                )
+                after_dirty = await dirty_modules(state)
         result = OperationResult(
             tool=tool,
             result=redact(outcome.result),

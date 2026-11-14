@@ -100,22 +100,17 @@ async def _array_uuid(state: Any, uuid: str | None) -> str:
 async def snapraid_command(
     ctx: Context,
     command: Literal["status", "diff", "smart", "scrub"],
-    scrub_percent: int = 0,
     uuid: str | None = None,
     confirm_token: str | None = None,
 ) -> PlanResponse | OperationResult:
     state = get_state(ctx)
-    if command == "scrub" and not 0 <= scrub_percent <= 100:
-        raise SafetyError("scrub_percent must be between 0 and 100")
     params: dict[str, Any] = {"uuid": await _array_uuid(state, uuid), "command": command}
-    if command == "scrub":
-        params["percentage"] = scrub_percent
 
     async def build() -> PlanSpec:
         return PlanSpec(
             rpc_calls=[{"service": "SnapRaid", "method": "executeCommand", "params": params}],
             before=None,
-            after={"command": command, "scrub_percent": scrub_percent},
+            after={"command": command},
             changes=[{"field": "command", "before": None, "after": command}],
         )
 
@@ -162,7 +157,7 @@ async def snapraid_sync(
         ctx=ctx,
         tool="snapraid_sync",
         tier=Tier.ADMIN,
-        args={},
+        args={"uuid": params["uuid"]},
         build=build,
         execute=execute,
         confirm_token=confirm_token,
