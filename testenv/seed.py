@@ -275,7 +275,7 @@ class Seed:
             if not folder:
                 folder = {"name": name, "uuid": None}
             self.folders[name] = folder
-        await self.apply(["shares"])
+        await self.apply(["sharedfolders"])
 
         for name, folder in self.folders.items():
             if not folder.get("uuid"):
@@ -511,7 +511,7 @@ class Seed:
         if remaining != ["ssh"]:
             raise RuntimeError(f"expected only ssh dirty, got {remaining}")
         with contextlib.suppress(Exception):
-            await asyncio.wait_for(self.call("System", "shutdown", {"delay": 0}, timeout=5), 10)
+            await self.call("System", "shutdown", {"delay": 1}, timeout=30)
 
 
 async def main() -> None:

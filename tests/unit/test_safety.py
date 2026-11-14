@@ -157,6 +157,11 @@ async def test_guarded_write_rejects_unexpected_dirty_module(tmp_path: Path) -> 
         confirm_token=None,
     )
     assert isinstance(plan, PlanResponse)
+    audit_text = settings.audit_path.read_text()
+    records = [json.loads(line) for line in audit_text.splitlines()]
+    assert records[-1]["status"] == "plan"
+    assert records[-1]["pending_apply"] == ["ssh"]
+    assert plan.confirm_token not in audit_text
     with pytest.raises(SafetyError, match="unexpected modules"):
         await guarded_write(
             ctx=ctx,

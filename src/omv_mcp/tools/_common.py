@@ -218,7 +218,7 @@ async def guarded_write(
                 f"{new_plan.dirty_before}"
             )
         token, expiry = await state.confirm.issue(tool, args, new_plan)
-        return PlanResponse(
+        response = PlanResponse(
             tool=tool,
             rpc_calls=[redact(call) for call in new_plan.rpc_calls],
             before=redact(new_plan.before),
@@ -230,6 +230,21 @@ async def guarded_write(
             confirm_token=token,
             expires_at=_iso(expiry),
         )
+        await state.audit.write(
+            {
+                "tool": tool,
+                "tier": tier,
+                "args": redact(args),
+                "rpc_calls": response.rpc_calls,
+                "status": "plan",
+                "result": {"dirty_modules": new_plan.dirty_before},
+                "error": None,
+                "job_id": None,
+                "dirtied_modules": [],
+                "pending_apply": new_plan.dirty_before,
+            }
+        )
+        return response
 
     plan: PlanSpec = await state.confirm.consume(confirm_token, tool, args)
     current_dirty = await dirty_modules(state)
