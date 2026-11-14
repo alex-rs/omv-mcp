@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from omv_mcp.models import PlanResponse
 from omv_mcp.safety.guard import SafetyError
 from omv_mcp.settings import Mode, Settings
 from omv_mcp.state import AppState
@@ -108,3 +109,40 @@ async def test_user_set_refuses_protected_name(state: AppState) -> None:
     ctx: Any = Ctx(state)
     with pytest.raises(SafetyError, match="protected user"):
         await user_set(ctx, "admin", comment="x")
+
+
+async def test_smb_update_preserves_unset_fields(tmp_path: Path) -> None:
+    from omv_mcp.tools.shares import smb_share_set
+
+    settings = Settings(
+        ssh_host="127.0.0.1",
+        mode=Mode.ADMIN,
+        elicit_admin=False,
+        audit_path=tmp_path / "audit.jsonl",
+    )
+    backend = FakeBackend(
+        {
+            ("System", "getInformation"): {"dirtyModules": ["ssh"]},
+            ("SMB", "getShare"): {
+                "uuid": "u1",
+                "name": "old",
+                "sharedfolderref": "s1",
+                "guest": "only",
+                "readonly": True,
+                "comment": "keep",
+            },
+            ("SMB", "setShare"): True,
+        }
+    )
+    state = AppState.create(settings, backend=backend)
+    ctx: Any = Ctx(state)
+    plan = await smb_share_set(ctx, "s1", uuid="u1")
+    assert isinstance(plan, PlanResponse)
+    await smb_share_set(ctx, "s1", uuid="u1", confirm_token=plan.confirm_token)
+    params = next(
+        call[2] for call in reversed(backend.calls) if call[0] == "SMB" and call[1] == "setShare"
+    )
+    print("PARAMS", params)
+    assert params["guest"] == "only"
+    assert params["readonly"] is True
+    assert params["comment"] == "keep"

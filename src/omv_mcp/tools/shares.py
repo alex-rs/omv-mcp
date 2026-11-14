@@ -369,53 +369,77 @@ async def smb_share_get(ctx: Context, uuid: str) -> Any:
 
 async def smb_share_set(
     ctx: Context,
-    name: str,
     sharedfolderref: str,
     uuid: str | None = None,
-    comment: str = "",
-    guest: Literal["no", "allow", "only"] = "no",
-    readonly: bool = False,
-    browseable: bool = True,
-    recyclebin: bool = False,
-    recyclemaxsize: int = 0,
-    recyclemaxage: int = 0,
-    hidedotfiles: bool = False,
-    inheritacls: bool = False,
-    inheritpermissions: bool = False,
-    easupport: bool = False,
-    storedosattributes: bool = False,
-    hostsallow: str = "",
-    hostsdeny: str = "",
-    audit: bool = False,
-    timemachine: bool = False,
-    enable: bool = True,
-    extraoptions: str = "",
+    comment: str | None = None,
+    guest: Literal["no", "allow", "only"] | None = None,
+    readonly: bool | None = None,
+    browseable: bool | None = None,
+    recyclebin: bool | None = None,
+    recyclemaxsize: int | None = None,
+    recyclemaxage: int | None = None,
+    hidedotfiles: bool | None = None,
+    inheritacls: bool | None = None,
+    inheritpermissions: bool | None = None,
+    easupport: bool | None = None,
+    storedosattributes: bool | None = None,
+    hostsallow: str | None = None,
+    hostsdeny: str | None = None,
+    audit: bool | None = None,
+    timemachine: bool | None = None,
+    enable: bool | None = None,
+    extraoptions: str | None = None,
     apply: bool = False,
     confirm_token: str | None = None,
 ) -> PlanResponse | OperationResult:
     state = get_state(ctx)
-    _check_options(extraoptions)
+    if extraoptions is not None:
+        _check_options(extraoptions)
     params: dict[str, Any] = {
         "uuid": uuid or NEW_UUID,
         "sharedfolderref": sharedfolderref,
-        "comment": comment,
-        "guest": guest,
-        "readonly": readonly,
-        "browseable": browseable,
-        "recyclebin": recyclebin,
-        "recyclemaxsize": recyclemaxsize,
-        "recyclemaxage": recyclemaxage,
-        "hidedotfiles": hidedotfiles,
-        "inheritacls": inheritacls,
-        "inheritpermissions": inheritpermissions,
-        "easupport": easupport,
-        "storedosattributes": storedosattributes,
-        "hostsallow": hostsallow,
-        "hostsdeny": hostsdeny,
-        "audit": audit,
-        "timemachine": timemachine,
-        "enable": enable,
-        "extraoptions": extraoptions,
+    }
+    for key, value in (
+        ("comment", comment),
+        ("guest", guest),
+        ("readonly", readonly),
+        ("browseable", browseable),
+        ("recyclebin", recyclebin),
+        ("recyclemaxsize", recyclemaxsize),
+        ("recyclemaxage", recyclemaxage),
+        ("hidedotfiles", hidedotfiles),
+        ("inheritacls", inheritacls),
+        ("inheritpermissions", inheritpermissions),
+        ("easupport", easupport),
+        ("storedosattributes", storedosattributes),
+        ("hostsallow", hostsallow),
+        ("hostsdeny", hostsdeny),
+        ("audit", audit),
+        ("timemachine", timemachine),
+        ("enable", enable),
+        ("extraoptions", extraoptions),
+    ):
+        if value is not None:
+            params[key] = value
+    defaults: dict[str, Any] = {
+        "comment": "",
+        "guest": "no",
+        "readonly": False,
+        "browseable": True,
+        "recyclebin": False,
+        "recyclemaxsize": 0,
+        "recyclemaxage": 0,
+        "hidedotfiles": False,
+        "inheritacls": False,
+        "inheritpermissions": False,
+        "easupport": False,
+        "storedosattributes": False,
+        "hostsallow": "",
+        "hostsdeny": "",
+        "audit": False,
+        "timemachine": False,
+        "enable": True,
+        "extraoptions": "",
     }
 
     async def build() -> PlanSpec:
@@ -423,24 +447,22 @@ async def smb_share_set(
         if uuid:
             before = await rpc_call_ro(state, "SMB", "getShare", {"uuid": uuid})
             if isinstance(before, dict):
-                params.update({k: v for k, v in before.items() if k not in params or k == "name"})
-                params.update(
-                    {
-                        "sharedfolderref": sharedfolderref,
-                        "comment": comment,
-                        "guest": guest,
-                        "readonly": readonly,
-                        "browseable": browseable,
-                        "recyclebin": recyclebin,
-                        "enable": enable,
-                        "extraoptions": extraoptions,
-                    }
-                )
+                for key, value in before.items():
+                    if key not in {"name", "uuid"} and key not in params:
+                        params[key] = value
+        for key, value in defaults.items():
+            params.setdefault(key, value)
         return PlanSpec(
             rpc_calls=[{"service": "SMB", "method": "setShare", "params": params}],
             before=before,
-            after={"name": name, "sharedfolderref": sharedfolderref},
-            changes=[{"field": "name", "before": (before or {}).get("name"), "after": name}],
+            after={"sharedfolderref": sharedfolderref},
+            changes=[
+                {
+                    "field": "sharedfolderref",
+                    "before": (before or {}).get("sharedfolderref"),
+                    "after": sharedfolderref,
+                }
+            ],
         )
 
     async def execute(plan: PlanSpec) -> ExecutionOutcome:
@@ -529,36 +551,61 @@ async def nfs_share_set(
     ctx: Context,
     sharedfolderref: str,
     mntentref: str,
-    client: str = "*",
-    options: str = "rw",
+    client: str | None = None,
+    options: str | None = None,
     uuid: str | None = None,
-    comment: str = "",
-    extraoptions: str = "sec=sys",
+    comment: str | None = None,
+    extraoptions: str | None = None,
     apply: bool = False,
     confirm_token: str | None = None,
 ) -> PlanResponse | OperationResult:
     state = get_state(ctx)
-    _check_options(options)
-    _check_options(extraoptions)
-    params = {
+    if options is not None:
+        _check_options(options)
+    if extraoptions is not None:
+        _check_options(extraoptions)
+    params: dict[str, Any] = {
         "uuid": uuid or NEW_UUID,
         "sharedfolderref": sharedfolderref,
         "mntentref": mntentref,
-        "client": client,
-        "options": options,
-        "comment": comment,
-        "extraoptions": extraoptions,
+    }
+    for key, value in (
+        ("client", client),
+        ("options", options),
+        ("comment", comment),
+        ("extraoptions", extraoptions),
+    ):
+        if value is not None:
+            params[key] = value
+    defaults = {
+        "client": "*",
+        "options": "rw",
+        "comment": "",
+        "extraoptions": "sec=sys",
     }
 
     async def build() -> PlanSpec:
         before = (
             await rpc_call_ro(state, "NFS", "getShare", {"uuid": params["uuid"]}) if uuid else None
         )
+        if isinstance(before, dict):
+            for key, value in before.items():
+                if key not in {"uuid"} and key not in params:
+                    params[key] = value
+        for key, value in defaults.items():
+            params.setdefault(key, value)
         return PlanSpec(
             rpc_calls=[{"service": "NFS", "method": "setShare", "params": params}],
             before=before,
-            after={"sharedfolderref": sharedfolderref, "client": client},
-            changes=[{"field": "client", "before": (before or {}).get("client"), "after": client}],
+            after={"sharedfolderref": sharedfolderref, "client": params["client"]},
+            changes=[
+                {
+                    "field": key,
+                    "before": (before or {}).get(key),
+                    "after": params.get(key),
+                }
+                for key in ("sharedfolderref", "client", "options", "comment", "extraoptions")
+            ],
         )
 
     async def execute(plan: PlanSpec) -> ExecutionOutcome:
@@ -642,43 +689,64 @@ async def rsyncd_module_set(
     name: str,
     sharedfolderref: str,
     uuid: str | None = None,
-    comment: str = "",
-    uid: str = "nobody",
-    gid: str = "nogroup",
-    readonly: bool = True,
-    writeonly: bool = False,
-    maxconnections: int = 0,
-    list: bool = True,
-    hostsallow: str = "",
-    hostsdeny: str = "",
-    authusers: bool = False,
-    usechroot: bool = True,
+    comment: str | None = None,
+    uid: str | None = None,
+    gid: str | None = None,
+    readonly: bool | None = None,
+    writeonly: bool | None = None,
+    maxconnections: int | None = None,
+    list: bool | None = None,
+    hostsallow: str | None = None,
+    hostsdeny: str | None = None,
+    authusers: bool | None = None,
+    usechroot: bool | None = None,
     users: list[dict[str, str]] | None = None,
-    extraoptions: str = "",
-    enable: bool = True,
+    extraoptions: str | None = None,
+    enable: bool | None = None,
     apply: bool = False,
     confirm_token: str | None = None,
 ) -> PlanResponse | OperationResult:
     state = get_state(ctx)
-    _check_options(extraoptions)
+    if extraoptions is not None:
+        _check_options(extraoptions)
     params: dict[str, Any] = {
         "uuid": uuid or NEW_UUID,
         "sharedfolderref": sharedfolderref,
         "name": name,
-        "comment": comment,
-        "uid": uid,
-        "gid": gid,
-        "readonly": readonly,
-        "writeonly": writeonly,
-        "maxconnections": maxconnections,
-        "list": list,
-        "hostsallow": hostsallow,
-        "hostsdeny": hostsdeny,
-        "authusers": authusers,
-        "usechroot": usechroot,
-        "users": users or [],
-        "extraoptions": extraoptions,
-        "enable": enable,
+    }
+    for key, value in (
+        ("comment", comment),
+        ("uid", uid),
+        ("gid", gid),
+        ("readonly", readonly),
+        ("writeonly", writeonly),
+        ("maxconnections", maxconnections),
+        ("list", list),
+        ("hostsallow", hostsallow),
+        ("hostsdeny", hostsdeny),
+        ("authusers", authusers),
+        ("usechroot", usechroot),
+        ("users", users),
+        ("extraoptions", extraoptions),
+        ("enable", enable),
+    ):
+        if value is not None:
+            params[key] = value
+    defaults: dict[str, Any] = {
+        "comment": "",
+        "uid": "nobody",
+        "gid": "nogroup",
+        "readonly": True,
+        "writeonly": False,
+        "maxconnections": 0,
+        "list": True,
+        "hostsallow": "",
+        "hostsdeny": "",
+        "authusers": False,
+        "usechroot": True,
+        "users": [],
+        "extraoptions": "",
+        "enable": True,
     }
 
     async def build() -> PlanSpec:
@@ -688,17 +756,22 @@ async def rsyncd_module_set(
             else None
         )
         if isinstance(before, dict):
-            params.update({k: v for k, v in before.items() if k not in params})
+            for key, value in before.items():
+                if key not in {"uuid"} and key not in params:
+                    params[key] = value
+        for key, value in defaults.items():
+            params.setdefault(key, value)
         return PlanSpec(
             rpc_calls=[{"service": "Rsyncd", "method": "setModule", "params": params}],
             before=before,
-            after={"sharedfolderref": sharedfolderref},
+            after={"name": name, "sharedfolderref": sharedfolderref},
             changes=[
                 {
-                    "field": "sharedfolderref",
-                    "before": (before or {}).get("sharedfolderref"),
-                    "after": sharedfolderref,
+                    "field": key,
+                    "before": (before or {}).get(key),
+                    "after": params.get(key),
                 }
+                for key in ("name", "sharedfolderref", "comment", "readonly", "enable")
             ],
         )
 

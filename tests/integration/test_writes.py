@@ -62,13 +62,18 @@ async def test_shared_folder_smb_roundtrip(ctx: Any) -> None:
     await _execute(
         ctx,
         smb_share_set,
-        name="it-share",
         sharedfolderref=uuid,
-        guest="no",
+        guest="only",
         comment="integration",
     )
     shares = await smb_shares_list(ctx, search="it-share")
     assert shares.total == 1
+    await _execute(
+        ctx, smb_share_set, uuid=shares.items[0]["uuid"], sharedfolderref=uuid, comment="changed"
+    )
+    updated = await smb_shares_list(ctx, search="it-share")
+    assert updated.items[0]["comment"] == "changed"
+    assert updated.items[0]["guest"] == "only"
     await _execute(ctx, smb_share_delete, uuid=shares.items[0]["uuid"])
     await _execute(ctx, shared_folder_delete, uuid=uuid)
 

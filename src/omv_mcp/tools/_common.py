@@ -242,6 +242,13 @@ async def guarded_write(
         if _fingerprint(current) != plan.before_fingerprint:
             raise SafetyError("the target changed since the plan was issued")
 
+    # Build closures (e.g. merged update params) are populated during the plan
+    # phase. Re-run build on execute so the confirmed call uses the same state,
+    # without changing the token-bound plan itself.
+    rebuilt = await build()
+    if rebuilt.before is not None and _fingerprint(rebuilt.before) != plan.before_fingerprint:
+        raise SafetyError("the target changed since the plan was issued")
+
     from omv_mcp.safety.modes import Tier
 
     if state.settings.elicit_admin and tier is Tier.ADMIN:
