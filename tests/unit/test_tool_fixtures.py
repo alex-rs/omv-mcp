@@ -146,3 +146,36 @@ async def test_smb_update_preserves_unset_fields(tmp_path: Path) -> None:
     assert params["guest"] == "only"
     assert params["readonly"] is True
     assert params["comment"] == "keep"
+
+
+async def test_compose_container_tools_use_id_and_hide_exec_token(tmp_path: Path) -> None:
+    from omv_mcp.tools.plugins.compose import compose_container_log, compose_containers
+
+    settings = Settings(
+        ssh_host="127.0.0.1",
+        mode=Mode.READONLY,
+        audit_path=tmp_path / "audit.jsonl",
+    )
+    backend = FakeBackend(
+        {
+            ("Compose", "getContainerList"): {
+                "total": 1,
+                "data": [
+                    {
+                        "id": "cid",
+                        "name": "whoami",
+                        "state": "running",
+                        "execurl": "https://host/docker?hmac=secret",
+                    }
+                ],
+            },
+        },
+        files={("Compose", "getContainerLog"): b"line one\nline two\n"},
+    )
+    state = AppState.create(settings, backend=backend)
+    ctx: Any = Ctx(state)
+    rows = await compose_containers(ctx)
+    assert rows == [{"id": "cid", "name": "whoami", "state": "running"}]
+    log = await compose_container_log(ctx, id="cid", name="whoami", tail=1)
+    assert log["content"] == "line two"
+    assert backend.calls[-1][2] == {"id": "cid", "name": "whoami"}

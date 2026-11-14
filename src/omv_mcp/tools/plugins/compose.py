@@ -58,20 +58,25 @@ async def compose_containers(ctx: Context) -> Any:
     state = get_state(ctx)
     result = await rpc_call_list(state, "Compose", "getContainerList")
     _, rows = normalize_list(result)
-    return redact(rows)
+    # execurl embeds a short-lived cterm HMAC credential; do not expose it.
+    return redact([{k: v for k, v in row.items() if k != "execurl"} for row in rows])
 
 
-async def compose_container_log(ctx: Context, uuid: str, tail: int = 200) -> dict[str, Any]:
+async def compose_container_log(
+    ctx: Context, id: str, name: str, tail: int = 200
+) -> dict[str, Any]:
     state = get_state(ctx)
-    result = await rpc_call_ro(state, "Compose", "getContainerLog", {"uuid": uuid, "tail": tail})
-    return {"uuid": uuid, "content": redact_text(str(result))}
+    data = await state.backend.fetch_file("Compose", "getContainerLog", {"id": id, "name": name})
+    text = redact_text(data.decode("utf-8", "replace"))
+    lines = text.splitlines()[-max(1, min(tail, 5000)) :]
+    return {"id": id, "name": name, "lines": len(lines), "content": "\n".join(lines)}
 
 
 async def compose_stats(ctx: Context) -> Any:
     state = get_state(ctx)
     result = await rpc_call_list(state, "Compose", "getContainerList")
     _, rows = normalize_list(result)
-    keep = {"name", "state", "status", "cpu", "memory", "mem", "pids", "netio", "blockio"}
+    keep = {"id", "name", "image", "state", "status", "running", "created"}
     return redact([{k: v for k, v in row.items() if k in keep} for row in rows])
 
 
@@ -92,13 +97,13 @@ TOOLS = (
     ro(
         "compose_container_log",
         compose_container_log,
-        "Return recent container logs.",
+        "Return recent logs for a container id/name.",
         "Compose.getContainerLog",
     ),
     ro(
         "compose_stats",
         compose_stats,
-        "Return container resource statistics.",
+        "Return compact container status.",
         "Compose.getContainerList",
     ),
 )

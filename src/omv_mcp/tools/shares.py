@@ -277,7 +277,6 @@ async def snapshots_list(
 async def snapshot_create(
     ctx: Context,
     uuid: str,
-    name: str | None = None,
     apply: bool = False,
     confirm_token: str | None = None,
 ) -> PlanResponse | OperationResult:
@@ -310,7 +309,7 @@ async def snapshot_create(
             before=folder,
             after={"uuid": uuid, "snapshot": "created"},
             changes=[{"field": "snapshot", "before": None, "after": "created"}],
-            modules_expected={"sharedfolders"},
+            modules_expected=set(),
         )
 
     async def execute(plan: PlanSpec) -> ExecutionOutcome:
@@ -322,7 +321,7 @@ async def snapshot_create(
         ctx=ctx,
         tool="snapshot_create",
         tier=Tier.OPERATOR,
-        args={"uuid": uuid, "name": name, "apply": apply},
+        args={"uuid": uuid, "apply": apply},
         build=build,
         execute=execute,
         confirm_token=confirm_token,
