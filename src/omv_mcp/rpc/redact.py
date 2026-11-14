@@ -10,8 +10,11 @@ _SECRET_KEY_PARTS = (
     "token",
     "api_key",
     "private_key",
+    "privatekey",
     "shared_key",
     "preshared_key",
+    "presharedkey",
+    "apikey",
     "psk",
     "ssh_key",
     "wpapsk",
@@ -25,10 +28,19 @@ _PEM_PRIVATE = re.compile(
 _URL_CREDENTIALS = re.compile(
     r"(?P<scheme>[a-zA-Z][a-zA-Z0-9+.-]*://)(?P<user>[^/\s:@]+):(?P<pw>[^/\s@]+)@"
 )
+_NAMES = "|".join(map(re.escape, _SECRET_KEY_PARTS))
 _KEY_VALUE = re.compile(
-    r"(?P<key>[A-Za-z0-9_.-]*(?:" + "|".join(map(re.escape, _SECRET_KEY_PARTS)) + r")"
+    r"(?P<key>[A-Za-z0-9_.-]*(?:" + _NAMES + r")"
     r"[A-Za-z0-9_.-]*)\s*(?P<sep>[=:])\s*(?P<val>[^\s,;]+)",
     re.IGNORECASE,
+)
+_JSON_VALUE = re.compile(
+    r'"(?P<key>[^"]*(?:' + _NAMES + r')[^"]*)"\s*:\s*"(?P<val>(?:\\.|[^"\\])*)"',
+    re.IGNORECASE,
+)
+_XML_VALUE = re.compile(
+    r"(?P<open><(?P<tag>[^>]*(?:" + _NAMES + r")[^>]*)>)(?P<val>.*?)(?P<close></[^>]+>)",
+    re.IGNORECASE | re.DOTALL,
 )
 
 
@@ -42,6 +54,8 @@ def redact_text(text: str) -> str:
     text = _URL_CREDENTIALS.sub(
         lambda m: f"{m.group('scheme')}{m.group('user')}:{_REDACTED}@", text
     )
+    text = _JSON_VALUE.sub(lambda m: f'"{m.group("key")}": "{_REDACTED}"', text)
+    text = _XML_VALUE.sub(lambda m: f"{m.group('open')}{_REDACTED}{m.group('close')}", text)
     return _KEY_VALUE.sub(lambda m: f"{m.group('key')}{m.group('sep')}{_REDACTED}", text)
 
 

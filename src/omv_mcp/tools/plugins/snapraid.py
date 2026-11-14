@@ -14,6 +14,7 @@ from omv_mcp.tools._common import (
     get_state,
     guarded_write,
     list_call,
+    rpc_call_list,
     rpc_call_ro,
 )
 from omv_mcp.tools.registry import admin, op, ro
@@ -23,7 +24,7 @@ async def snapraid_arrays(ctx: Context) -> Any:
     state = get_state(ctx)
     return redact(
         {
-            "arrays": await rpc_call_ro(state, "SnapRaid", "getArrayList"),
+            "arrays": await rpc_call_list(state, "SnapRaid", "getArrayList"),
             "config": await rpc_call_ro(state, "SnapRaid", "getArrayConfig"),
         }
     )
@@ -86,16 +87,27 @@ async def snapraid_config(ctx: Context) -> Any:
     )
 
 
+async def _array_uuid(state: Any, uuid: str | None) -> str:
+    if uuid:
+        return uuid
+    result = await rpc_call_list(state, "SnapRaid", "getArrayList")
+    rows = result.get("data", []) if isinstance(result, dict) else []
+    if not rows:
+        raise SafetyError("no SnapRAID array configured")
+    return str(rows[0]["uuid"])
+
+
 async def snapraid_command(
     ctx: Context,
     command: Literal["status", "diff", "smart", "scrub"],
     scrub_percent: int = 0,
+    uuid: str | None = None,
     confirm_token: str | None = None,
 ) -> PlanResponse | OperationResult:
     state = get_state(ctx)
     if command == "scrub" and not 0 <= scrub_percent <= 100:
         raise SafetyError("scrub_percent must be between 0 and 100")
-    params: dict[str, Any] = {"command": command}
+    params: dict[str, Any] = {"uuid": await _array_uuid(state, uuid), "command": command}
     if command == "scrub":
         params["percentage"] = scrub_percent
 
@@ -126,10 +138,10 @@ async def snapraid_command(
 
 
 async def snapraid_sync(
-    ctx: Context, confirm_token: str | None = None
+    ctx: Context, uuid: str | None = None, confirm_token: str | None = None
 ) -> PlanResponse | OperationResult:
     state = get_state(ctx)
-    params = {"command": "sync"}
+    params = {"uuid": await _array_uuid(state, uuid), "command": "sync"}
 
     async def build() -> PlanSpec:
         return PlanSpec(
@@ -181,5 +193,11 @@ TOOLS = (
         "Run a read-only snapraid command or scrub.",
         "SnapRaid.executeCommand",
     ),
-    admin("snapraid_sync", snapraid_sync, "Run snapraid sync.", "SnapRaid.executeCommand"),
+    admin(
+        "snapraid_sync",
+        snapraid_sync,
+        "Run snapraid sync.",
+        "SnapRaid.executeCommand",
+        idempotent=False,
+    ),
 )

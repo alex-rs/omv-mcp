@@ -7,7 +7,14 @@ from fastmcp import Context
 
 from omv_mcp.models import OperationResult, PlanResponse
 from omv_mcp.rpc.redact import redact
-from omv_mcp.safety.guard import SafetyError, is_never_exposed, is_ro_method
+from omv_mcp.safety.guard import (
+    SafetyError,
+    check_protected_group,
+    check_protected_user,
+    is_never_exposed,
+    is_ro_method,
+    shared_folder_refs,
+)
 from omv_mcp.safety.modes import Tier
 from omv_mcp.schemas import read_catalog, read_schema
 from omv_mcp.tools._common import (
@@ -76,7 +83,7 @@ async def notifications_test_email(
     ctx: Context, id: str | None = None, confirm_token: str | None = None
 ) -> PlanResponse | OperationResult:
     state = get_state(ctx)
-    service = "Notification" if id else "EmailNotification"
+    service = "Notification"
     method = "sendTestEmail"
     params = {"id": id} if id else {}
 
@@ -112,6 +119,12 @@ async def rpc_describe(ctx: Context, service: str, method: str | None = None) ->
     methods = services.get(match or service, [])
     if method:
         methods = [name for name in methods if name.lower() == method.lower()]
+        if isinstance(schema, dict):
+            schema = {
+                key: value
+                for key, value in schema.items()
+                if key.rsplit(".", 1)[-1].lower() == method.lower()
+            }
     return {
         "service": match or service,
         "methods": methods,
@@ -131,16 +144,52 @@ async def rpc_call(
     state = get_state(ctx)
     if is_never_exposed(service, method):
         raise SafetyError(f"RPC {service}.{method} is never exposed")
+    service_key = service.casefold()
+    method_key = method.casefold()
+    if (
+        service_key == "system"
+        and method_key
+        in {
+            "reboot",
+            "shutdown",
+            "standby",
+            "suspend",
+            "hibernate",
+        }
+        and not state.settings.allow_power
+    ):
+        raise SafetyError("power RPCs are disabled by OMV_MCP_ALLOW_POWER")
+    if service_key == "usermgmt" and method_key in {"setuser", "deleteuser"}:
+        check_protected_user(str((params or {}).get("name", "")), state.settings.protected_users)
+    if service_key == "usermgmt" and method_key in {"setgroup", "deletegroup"}:
+        check_protected_group(str((params or {}).get("name", "")), state.settings.protected_groups)
+    if service_key == "sharemgmt" and method_key == "delete":
+        refs = await shared_folder_refs(state.backend, str((params or {}).get("uuid", "")))
+        if refs:
+            raise SafetyError("refusing: shared folder is referenced by " + ", ".join(refs))
     if is_ro_method(service, method):
         result = await state.backend.call(service, method, params or {})
         return _cap(redact(result), state.settings.response_max_bytes)
 
+    recheck = None
+    if service_key == "sharemgmt" and method_key == "delete":
+        folder_uuid = str((params or {}).get("uuid", ""))
+
+        async def recheck_folder() -> Any:
+            refs = await shared_folder_refs(state.backend, folder_uuid)
+            folder = await rpc_call_ro(state, "ShareMgmt", "get", {"uuid": folder_uuid})
+            return {"folder": folder, "references": refs}
+
+        recheck = recheck_folder
+
     async def build() -> PlanSpec:
+        before = await recheck() if recheck is not None else None
         return PlanSpec(
             rpc_calls=[{"service": service, "method": method, "params": params or {}}],
-            before=None,
+            before=before,
             after=None,
             changes=[{"field": "rpc", "before": None, "after": f"{service}.{method}"}],
+            recheck=recheck,
         )
 
     async def execute(plan: PlanSpec) -> ExecutionOutcome:

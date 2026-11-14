@@ -5,7 +5,7 @@ from typing import Any
 from fastmcp import Context
 
 from omv_mcp.rpc.redact import redact
-from omv_mcp.tools._common import get_state, rpc_call_ro
+from omv_mcp.tools._common import get_state, rpc_call_list
 from omv_mcp.tools.registry import ro
 
 _SECRET_KEYS = ("privatekey", "presharedkey", "private_key", "preshared_key")
@@ -25,12 +25,12 @@ def _strip(value: Any) -> Any:
 
 async def wireguard_tunnels(ctx: Context) -> Any:
     state = get_state(ctx)
-    return redact(_strip(await rpc_call_ro(state, "Wireguard", "getTunnelList")))
+    return redact(_strip(await rpc_call_list(state, "Wireguard", "getTunnelList")))
 
 
 async def wireguard_clients(ctx: Context) -> Any:
     state = get_state(ctx)
-    return redact(_strip(await rpc_call_ro(state, "Wireguard", "getClientList")))
+    return redact(_strip(await rpc_call_list(state, "Wireguard", "getClientList")))
 
 
 TOOLS = (

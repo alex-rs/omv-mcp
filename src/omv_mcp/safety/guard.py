@@ -83,14 +83,17 @@ RO_DENY: frozenset[str] = frozenset(
 
 
 def is_never_exposed(service: str, method: str) -> bool:
-    return f"{service}.{method}" in NEVER_EXPOSED or service == "Cterm"
+    return (
+        f"{service.casefold()}.{method.casefold()}" in {item.casefold() for item in NEVER_EXPOSED}
+        or service.casefold() == "cterm"
+    )
 
 
 def is_ro_method(service: str, method: str) -> bool:
-    name = f"{service}.{method}"
-    if is_never_exposed(service, method) or name in RO_DENY:
+    name = f"{service.casefold()}.{method.casefold()}"
+    if is_never_exposed(service, method) or name in {item.casefold() for item in RO_DENY}:
         return False
-    if method.startswith("download"):
+    if method.casefold().startswith("download"):
         return False
     return bool(RO_METHOD_RE.match(method))
 
@@ -123,10 +126,10 @@ async def shared_folder_refs(backend: RpcBackend, uuid: str) -> list[str]:
     ]
     refs: list[str] = []
     for label, service, method in sources:
-        try:
-            result = await backend.call(service, method)
-        except Exception:
-            continue
+        params = None
+        if method in {"getShareList", "getList", "getModuleList"}:
+            params = {"start": 0, "limit": -1}
+        result = await backend.call(service, method, params)
         if _contains_uuid(result, uuid):
             refs.append(label)
     return refs

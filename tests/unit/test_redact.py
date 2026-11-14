@@ -37,3 +37,24 @@ def test_redacts_private_key_but_not_public() -> None:
 
 def test_redacts_all_string_values() -> None:
     assert redact({"command": "echo password=abc"})["command"] == "echo password=***"
+
+
+def test_redacts_camel_case_omv_keys() -> None:
+    data = {
+        "privatekeyserver": "PRIV",
+        "presharedkeyclient": "PSK",
+        "apikey": "KEY",
+    }
+    assert redact(data) == {
+        "privatekeyserver": "***",
+        "presharedkeyclient": "***",
+        "apikey": "***",
+    }
+    assert "PRIV" not in redact_text("privatekeyserver=PRIV")
+
+
+def test_redacts_json_and_xml_secret_text() -> None:
+    assert redact_text('{"password": "abc"}') == '{"password": "***"}'
+    assert redact_text("<privatekeyserver>PRIV</privatekeyserver>") == (
+        "<privatekeyserver>***</privatekeyserver>"
+    )

@@ -65,3 +65,11 @@ async def test_job_error_includes_filename_and_tail() -> None:
 async def test_list_jobs_normalizes_strings() -> None:
     backend = FakeBackend({("Exec", "enumerate"): ["a", "b"]})
     assert await JobRunner(backend).list_jobs() == [{"filename": "a"}, {"filename": "b"}]
+
+
+async def test_list_jobs_normalizes_mapping() -> None:
+    backend = FakeBackend({("Exec", "enumerate"): {"/tmp/a": {"startTime": 1}, "/tmp/b": {}}})
+    assert await JobRunner(backend).list_jobs() == [
+        {"startTime": 1, "filename": "/tmp/a"},
+        {"filename": "/tmp/b"},
+    ]

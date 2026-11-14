@@ -79,7 +79,15 @@ class JobRunner:
         pos = 0
         tail = ""
         while True:
-            data = await self._output_once(filename, pos)
+            try:
+                data = await self._output_once(filename, pos)
+            except OmvRpcError as exc:
+                raise OmvRpcError(
+                    redact_text(f"job {filename} failed: {exc.message}; tail: {tail[-2000:]}"),
+                    code=exc.code,
+                    service=exc.service,
+                    method=exc.method,
+                ) from exc
             chunk = str(data.get("output") or "")
             if chunk:
                 tail = (tail + chunk)[-self._tail_bytes :]
@@ -118,7 +126,10 @@ class JobRunner:
         if isinstance(result, list):
             return [{"filename": item} if isinstance(item, str) else dict(item) for item in result]
         if isinstance(result, dict):
-            return [dict(result)]
+            return [
+                ({**value, "filename": name} if isinstance(value, dict) else {"filename": name})
+                for name, value in result.items()
+            ]
         return []
 
     async def stop(self, filename: str) -> Any:

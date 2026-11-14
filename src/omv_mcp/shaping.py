@@ -87,6 +87,8 @@ def shape_page(
         truncated=len(kept) < total,
         note=note,
     )
+    if not kept:
+        return page
     while kept:
         page.items = kept
         page.count = len(kept)

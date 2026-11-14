@@ -49,5 +49,4 @@ exec qemu-system-x86_64 \
   -netdev user,id=net0,hostfwd=tcp:0.0.0.0:2222-:22,hostfwd=tcp:0.0.0.0:8080-:80 \
   -device virtio-net-pci,netdev=net0 \
   -drive file=/state/seed.iso,media=cdrom,readonly=on \
-  -display none -monitor none -serial file:/state/console.log \
-  -no-reboot
+  -display none -monitor none -serial file:/state/console.log

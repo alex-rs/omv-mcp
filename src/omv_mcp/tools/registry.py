@@ -30,7 +30,7 @@ def make_annotations(
     return ToolAnnotations(
         read_only_hint=tier is Tier.READONLY,
         destructive_hint=destructive,
-        idempotent_hint=None if tier is not Tier.READONLY and not idempotent else idempotent,
+        idempotent_hint=idempotent,
         open_world_hint=True,
     )
 
@@ -44,6 +44,7 @@ def op(
     fn: Callable[..., Awaitable[Any]],
     description: str,
     *rpcs: str,
+    destructive: bool = False,
     idempotent: bool = True,
 ) -> ToolSpec:
     return ToolSpec(
@@ -52,7 +53,7 @@ def op(
         fn,
         description,
         rpcs,
-        make_annotations(Tier.OPERATOR, idempotent=idempotent),
+        make_annotations(Tier.OPERATOR, destructive=destructive, idempotent=idempotent),
     )
 
 

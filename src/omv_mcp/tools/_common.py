@@ -122,6 +122,17 @@ async def dirty_modules(state: AppState) -> list[str]:
     return []
 
 
+def cap_payload(value: Any, max_bytes: int) -> Any:
+    text = json.dumps(value, default=str)
+    if len(text.encode()) <= max_bytes:
+        return value
+    return {
+        "truncated": True,
+        "note": "response capped; narrow the request",
+        "preview": text[: max_bytes // 2],
+    }
+
+
 def result_page(result: Any, *, fields: Sequence[str] | str | None = None) -> Any:
     if isinstance(result, dict):
         return redact(project_fields(result, fields))
@@ -238,9 +249,10 @@ async def guarded_write(
 
     await state.limiter.acquire()
     try:
-        outcome = await execute(plan)
-        after_dirty = await dirty_modules(state)
-        dirtied = sorted(set(after_dirty) - set(plan.dirty_before))
+        async with state.write_lock:
+            outcome = await execute(plan)
+            after_dirty = await dirty_modules(state)
+            dirtied = sorted(set(after_dirty) - set(plan.dirty_before))
         applied: list[str] = []
         if apply:
             if plan.dirty_before:

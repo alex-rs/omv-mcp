@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euxo pipefail
+set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 export LANG=C.UTF-8

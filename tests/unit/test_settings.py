@@ -67,3 +67,11 @@ def test_cli_overrides_env(monkeypatch: pytest.MonkeyPatch) -> None:
     s = Settings(mode=Mode.ADMIN, ssh_port=2222)
     assert s.mode is Mode.ADMIN
     assert s.ssh_port == 2222
+
+
+def test_empty_http_token_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OMV_MCP_SSH_HOST", "127.0.0.1")
+    monkeypatch.setenv("OMV_MCP_TRANSPORT", "http")
+    monkeypatch.setenv("OMV_MCP_HTTP_TOKEN", "   ")
+    with pytest.raises(ValidationError, match="OMV_MCP_HTTP_TOKEN"):
+        Settings()

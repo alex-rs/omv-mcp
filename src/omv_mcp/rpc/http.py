@@ -29,7 +29,7 @@ class HttpBackend:
             base_url=base,
             verify=verify,
             timeout=httpx.Timeout(60.0),
-            follow_redirects=True,
+            follow_redirects=False,
         )
         self._login_lock = asyncio.Lock()
 
@@ -164,6 +164,12 @@ class HttpBackend:
     ) -> Any:
         response = await self._post("rpc.php", service, method, params, timeout)
         payload = _safe_json(response)
+        if not isinstance(payload, dict):
+            raise OmvRpcError(
+                "unexpected non-JSON response from rpc.php",
+                service=service,
+                method=method,
+            )
         return payload.get("response")
 
     async def fetch_file(

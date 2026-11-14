@@ -62,5 +62,11 @@ TOOLS = (
         "WriteCache.getSettings",
         "WriteCache.getCompressionAlgorithms",
     ),
-    op("writecache_flush", writecache_flush, "Flush the writecache.", "WriteCache.doFlush"),
+    op(
+        "writecache_flush",
+        writecache_flush,
+        "Flush the writecache.",
+        "WriteCache.doFlush",
+        idempotent=False,
+    ),
 )

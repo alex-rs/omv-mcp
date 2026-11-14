@@ -37,3 +37,9 @@ def test_page_cap_drops_items() -> None:
     assert page.truncated is True
     assert page.count < 10
     assert page.note
+
+
+def test_empty_page_is_not_capped() -> None:
+    page = shape_page([], total=0, offset=0, limit=50, max_bytes=1000)
+    assert page.truncated is False
+    assert page.note is None

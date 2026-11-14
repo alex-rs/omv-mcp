@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import secrets
 from pathlib import Path
 from typing import Any
@@ -125,12 +126,11 @@ class Seed:
                     if "already exists" not in str(exc):
                         raise
         await self.apply(["fstab"])
-        mounted = rows(await self.list("FileSystemMgmt", "getList"))
-        for item in mounted:
-            if item.get("devicefile") in {
-                str(d.get("devicefile")) for d in by_serial.values()
-            } and not item.get("mounted"):
-                raise RuntimeError(f"filesystem {item.get('devicefile')} did not mount")
+        filesystems = await self.filesystem_by_serial()
+        for serial in SERIALS:
+            item = filesystems.get(serial)
+            if not item or not item.get("mounted"):
+                raise RuntimeError(f"filesystem for {serial} did not mount")
 
     async def filesystem_by_device(self) -> dict[str, dict[str, Any]]:
         return {
@@ -282,23 +282,6 @@ class Seed:
                 listing = rows(await self.list("ShareMgmt", "getList"))
                 folder = next((item for item in listing if item.get("name") == name), {})
                 self.folders[name] = folder
-        compose_folder = self.folders["compose-files"]
-        path = await self.call("ShareMgmt", "getPath", {"uuid": compose_folder["uuid"]})
-        conn = await asyncssh.connect(
-            "127.0.0.1",
-            port=2222,
-            username="root",
-            client_keys=[str(self.settings.ssh_key)],
-            known_hosts=str(self.settings.ssh_known_hosts),
-        )
-        try:
-            await conn.run(f"mkdir -p {path}/whoami")
-            compose = (
-                "services:\n  whoami:\n    image: traefik/whoami\n    ports:\n      - '9000:80'\n"
-            )
-            await conn.run(f"cat > {path}/whoami/compose.yaml", input=compose)
-        finally:
-            conn.close()
 
     async def compose(self) -> None:
         current = await self.call("Compose", "get")
@@ -339,6 +322,27 @@ class Seed:
         settings["backupsharedfolderref"] = self.folders["compose-backup"]["uuid"]
         await self.call("Compose", "set", settings)
         await self.apply(["compose"])
+        existing_files = await self.list("Compose", "getFileList")
+        file_rows = existing_files.get("data", []) if isinstance(existing_files, dict) else []
+        body = "services:\n  whoami:\n    image: traefik/whoami\n    ports:\n      - '9000:80'\n"
+        if not any(row.get("name") == "whoami" for row in file_rows):
+            await self.call(
+                "Compose",
+                "setFile",
+                {
+                    "name": "whoami",
+                    "description": "test stack",
+                    "body": body,
+                    "showenv": False,
+                    "env": "",
+                    "showoverride": False,
+                    "override": "",
+                },
+            )
+        await self.apply(["compose"])
+        files = await self.list("Compose", "getFileList")
+        if int(files.get("total", 0) if isinstance(files, dict) else 0) < 1:
+            raise RuntimeError("compose file was not registered")
         conn = await asyncssh.connect(
             "127.0.0.1",
             port=2222,
@@ -390,27 +394,38 @@ class Seed:
                 "tempmax": 60,
             },
         )
-        devices = {
-            str(item.get("devicefile")): item for item in rows(await self.list("Smart", "getList"))
+        devname_by_serial = {
+            str(item.get("serialnumber")): str(item.get("devicename"))
+            for item in rows(await self.list("DiskMgmt", "getList"))
+            if item.get("serialnumber")
         }
-        for devicefile, kind in (("/dev/sdb", "S"), ("/dev/sdd", "L")):
-            device = devices.get(devicefile)
-            if device:
-                await self.call(
-                    "Smart",
-                    "setScheduledTest",
-                    {
-                        "uuid": NEW_UUID,
-                        "enable": True,
-                        "devicefile": devicefile,
-                        "comment": f"{kind} test",
-                        "type": kind,
-                        "hour": "03",
-                        "month": "*",
-                        "dayofmonth": "*",
-                        "dayofweek": "1",
-                    },
-                )
+        smart_by_devname = {
+            str(item.get("devicename")): item
+            for item in rows(await self.list("Smart", "getList"))
+            if item.get("devicename")
+        }
+        for serial, kind, dayofmonth in (
+            ("OMVTESTSSD1", "S", "*"),
+            ("OMVTESTHDD1", "L", "01"),
+        ):
+            device = smart_by_devname.get(devname_by_serial.get(serial, ""))
+            if not device:
+                raise RuntimeError(f"SMART device missing for {serial}")
+            await self.call(
+                "Smart",
+                "setScheduledTest",
+                {
+                    "uuid": NEW_UUID,
+                    "enable": True,
+                    "devicefile": str(device.get("devicefile")),
+                    "comment": f"{kind} test",
+                    "type": kind,
+                    "hour": "03",
+                    "month": "*",
+                    "dayofmonth": dayofmonth,
+                    "dayofweek": "*" if dayofmonth != "*" else "1",
+                },
+            )
         await self.apply(["smartmontools"])
 
     async def power(self) -> None:
@@ -495,11 +510,8 @@ class Seed:
         remaining = await self.dirty()
         if remaining != ["ssh"]:
             raise RuntimeError(f"expected only ssh dirty, got {remaining}")
-        await self.call("System", "shutdown", {"delay": 0})
-        await asyncio.sleep(2)
-        (BASE / "base" / "PROVISIONED").touch()
-        for disk in (BASE / "base").glob("*.qcow2"):
-            disk.chmod(0o444)
+        with contextlib.suppress(Exception):
+            await asyncio.wait_for(self.call("System", "shutdown", {"delay": 0}, timeout=5), 10)
 
 
 async def main() -> None:

@@ -106,3 +106,10 @@ async def test_audit_redacts(tmp_path: Path) -> None:
     assert data["args"]["password"] == "***"
     assert "abc" not in data["result"]
     assert oct(path.stat().st_mode & 0o777) == "0o600"
+
+
+def test_guard_is_case_insensitive() -> None:
+    assert is_never_exposed("diskmgmt", "wipe")
+    assert is_never_exposed("cterm", "get")
+    assert not is_ro_method("wireguard", "getTunnelConfig")
+    assert is_ro_method("system", "getInformation")

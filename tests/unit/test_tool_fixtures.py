@@ -92,3 +92,19 @@ async def test_rpc_guard_and_config_requires_modules(state: AppState) -> None:
         await rpc_call(ctx, "DiskMgmt", "wipe", {})
     with pytest.raises(SafetyError, match="modules is required"):
         await config_apply(ctx, [])
+
+
+def test_bundled_schema_handles_array_datamodels() -> None:
+    from omv_mcp.schemas import read_schema
+
+    schema = read_schema("System")
+    assert isinstance(schema, dict)
+    assert "rpc.system.gettopinfo" in schema
+
+
+async def test_user_set_refuses_protected_name(state: AppState) -> None:
+    from omv_mcp.tools.shares import user_set
+
+    ctx: Any = Ctx(state)
+    with pytest.raises(SafetyError, match="protected user"):
+        await user_set(ctx, "admin", comment="x")

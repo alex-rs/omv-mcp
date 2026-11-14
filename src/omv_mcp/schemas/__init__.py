@@ -21,4 +21,12 @@ def read_schema(service: str) -> dict[str, Any] | None:
     except (FileNotFoundError, ModuleNotFoundError):
         return None
     data = json.loads(text)
-    return data if isinstance(data, dict) else None
+    if isinstance(data, dict):
+        return data
+    if isinstance(data, list):
+        return {
+            str(entry["id"]): entry
+            for entry in data
+            if isinstance(entry, dict) and isinstance(entry.get("id"), str)
+        }
+    return None

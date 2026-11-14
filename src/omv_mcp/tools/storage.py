@@ -19,6 +19,7 @@ from omv_mcp.shaping import filter_sort_slice, human_bytes, project_fields, shap
 from omv_mcp.tools._common import (
     ExecutionOutcome,
     PlanSpec,
+    cap_payload,
     get_state,
     guarded_write,
     list_call,
@@ -132,11 +133,9 @@ async def filesystems_list(
 
 
 async def filesystems_details(ctx: Context, devicefile: str) -> Any:
-    return redact(
-        await rpc_call_ro(
-            get_state(ctx), "FileSystemMgmt", "getDetails", {"devicefile": devicefile}
-        )
-    )
+    state = get_state(ctx)
+    result = await rpc_call_ro(state, "FileSystemMgmt", "getDetails", {"devicefile": devicefile})
+    return cap_payload(redact(result), state.settings.response_max_bytes)
 
 
 async def fstab_list(
@@ -211,13 +210,18 @@ async def smart_disk(
     return redact(result)
 
 
-async def smart_settings(ctx: Context) -> Any:
+async def smart_settings(ctx: Context, devicefile: str | None = None) -> Any:
     state = get_state(ctx)
+    device = (
+        await rpc_call_ro(state, "Smart", "getDeviceSettings", {"devicefile": devicefile})
+        if devicefile
+        else None
+    )
     return redact(
         {
             "settings": await rpc_call_ro(state, "Smart", "getSettings"),
-            "devices": await rpc_call_ro(state, "Smart", "getDeviceSettings"),
-            "schedule": await rpc_call_ro(state, "Smart", "getScheduleList"),
+            "device": device,
+            "schedule": await rpc_call_list(state, "Smart", "getScheduleList"),
         }
     )
 
@@ -260,15 +264,18 @@ async def smart_run_test(
 
 
 async def quota_get(
-    ctx: Context, type: Literal["user", "group"] = "user", name: str | None = None
+    ctx: Context,
+    uuid: str,
+    type: Literal["user", "group"] = "user",
+    name: str | None = None,
 ) -> Any:
     state = get_state(ctx)
     if name:
         method = "getByTypeName"
-        params = {"type": type, "name": name}
+        params = {"uuid": uuid, "type": type, "name": name}
     else:
         method = "get"
-        params = {}
+        params = {"uuid": uuid}
     return redact(await rpc_call_ro(state, "Quota", method, params))
 
 
@@ -283,13 +290,7 @@ async def storage_health_summary(ctx: Context) -> HealthSummary:
     _, fs_rows = normalize_list(fs_result)
     _, disk_rows = normalize_list(disk_result)
     _, smart_rows = normalize_list(smart_result)
-    if isinstance(services_result, dict):
-        service_rows = [
-            {"name": key, **value} if isinstance(value, dict) else {"name": key, "running": value}
-            for key, value in services_result.items()
-        ]
-    else:
-        _, service_rows = normalize_list(services_result)
+    _, service_rows = normalize_list(services_result)
     smart_by_device = {
         str(item.get("devicefile")): item for item in smart_rows if item.get("devicefile")
     }
@@ -325,7 +326,9 @@ async def storage_health_summary(ctx: Context) -> HealthSummary:
     for row in disk_rows:
         devicefile = str(row.get("devicefile") or "")
         smart = smart_by_device.get(devicefile, {})
-        health = str(smart.get("health") or smart.get("smart_status") or "")
+        health = str(
+            smart.get("overallstatus") or smart.get("health") or smart.get("smart_status") or ""
+        )
         temperature = smart.get("temperature")
         try:
             temp = int(temperature) if temperature is not None else None
@@ -388,7 +391,7 @@ async def storage_health_summary(ctx: Context) -> HealthSummary:
 
 TOOLS = (
     ro("disks_list", disks_list, "List physical disks.", "DiskMgmt.getList"),
-    op("disks_rescan", disks_rescan, "Rescan disk devices.", "DiskMgmt.rescan"),
+    op("disks_rescan", disks_rescan, "Rescan disk devices.", "DiskMgmt.rescan", idempotent=False),
     ro(
         "disks_hdparm_get",
         disks_hdparm_get,

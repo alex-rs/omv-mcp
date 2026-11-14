@@ -127,7 +127,7 @@ class SshBackend:
             except (asyncssh.Error, OSError, ConnectionError) as exc:
                 last_error = exc
                 await self._discard()
-                if attempt:
+                if attempt or isinstance(exc, TimeoutError):
                     break
         assert last_error is not None
         raise OmvRpcError(redact_text(str(last_error)))
@@ -141,8 +141,8 @@ class SshBackend:
         timeout: float | None = None,
     ) -> Any:
         command = build_command(self._settings.rpc_user, service, method, params)
-        result = await self._run_command(command, timeout=timeout)
         try:
+            result = await self._run_command(command, timeout=timeout)
             return _parse_omv_output(
                 _decode(result.stdout), _decode(result.stderr), result.exit_status or 0
             )
@@ -168,9 +168,9 @@ class SshBackend:
             raise OmvRpcError(f"{service}.{method} returned an unsafe filepath")
         if service == "Rrd" and not filepath.endswith(".png"):
             raise OmvRpcError("Rrd.fetch_file only allows PNG graphs")
-        if service == "LogFile" and not filepath.startswith("/tmp/"):
-            raise OmvRpcError("LogFile.fetch_file only allows /tmp files")
-        if service not in {"Rrd", "LogFile"}:
+        if service in {"LogFile", "Compose"} and not filepath.startswith("/tmp/"):
+            raise OmvRpcError(f"{service}.fetch_file only allows /tmp files")
+        if service not in {"Rrd", "LogFile", "Compose"}:
             raise OmvRpcError(f"fetch_file is not allowed for service {service}")
         result = await self._run_command(f"cat {shlex.quote(filepath)}", timeout=timeout)
         if result.exit_status != 0:

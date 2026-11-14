@@ -69,9 +69,11 @@ class Settings(BaseSettings):
         if self.backend is Backend.HTTP:
             if not self.http_url:
                 raise ValueError("http backend requires OMV_MCP_HTTP_URL")
-            if not self.http_password:
+            if not self.http_password or not self.http_password.get_secret_value().strip():
                 raise ValueError("http backend requires OMV_MCP_HTTP_PASSWORD")
-        if self.transport is Transport.HTTP and not self.http_token:
+        if self.transport is Transport.HTTP and (
+            not self.http_token or not self.http_token.get_secret_value().strip()
+        ):
             raise ValueError("http transport requires OMV_MCP_HTTP_TOKEN")
         if self.ssh_user != "root":
             raise ValueError("v1 requires SSH user root")

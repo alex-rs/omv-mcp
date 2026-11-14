@@ -135,6 +135,20 @@ async def test_reconnect_once(monkeypatch: pytest.MonkeyPatch) -> None:
     assert created == []
 
 
+async def test_timeout_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    first = Conn([TimeoutError("timed out")])
+    created: list[Conn] = [first]
+
+    async def connect(**kwargs: Any) -> Conn:
+        return created.pop(0)
+
+    monkeypatch.setattr(asyncssh, "connect", connect)
+    with pytest.raises(OmvRpcError, match="timed out"):
+        await SshBackend(settings(monkeypatch)).call("System", "noop")
+    assert first.closed
+    assert created == []
+
+
 async def test_fetch_file_rules(monkeypatch: pytest.MonkeyPatch) -> None:
     responses = {
         "LogFile.getContent": {"filepath": "/tmp/omv-log.txt", "unlink": True},

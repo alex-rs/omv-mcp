@@ -11,9 +11,11 @@ from omv_mcp.rpc.errors import OmvRpcError
 from omv_mcp.rpc.redact import redact, redact_text
 from omv_mcp.safety.guard import SafetyError
 from omv_mcp.safety.modes import Tier
+from omv_mcp.shaping import project_fields
 from omv_mcp.tools._common import (
     ExecutionOutcome,
     PlanSpec,
+    cap_payload,
     dirty_modules,
     get_state,
     guarded_write,
@@ -27,6 +29,8 @@ from omv_mcp.tools.registry import admin, op, ro
 async def system_info(ctx: Context, fields: list[str] | Literal["all"] | None = None) -> Any:
     state = get_state(ctx)
     result = await rpc_call_ro(state, "System", "getInformation")
+    if isinstance(result, dict):
+        return redact(project_fields(result, fields))
     return redact(result)
 
 
@@ -125,6 +129,7 @@ async def power_schedule_list(
         get_state(ctx),
         "PowerMgmt",
         "getScheduleList",
+        params={"type": ["reboot", "shutdown", "standby"]},
         limit=limit,
         offset=offset,
         search=search,
@@ -156,7 +161,7 @@ async def config_pending(ctx: Context) -> dict[str, Any]:
 
 async def logs_list(
     ctx: Context,
-    id: str = "",
+    id: str = "syslog",
     limit: int = 50,
     offset: int = 0,
     search: str | None = None,
@@ -184,7 +189,7 @@ async def logs_read(
     id: str,
     tail: int = 200,
     grep: str | None = None,
-) -> dict[str, Any]:
+) -> Any:
     state = get_state(ctx)
     data = await state.backend.fetch_file("LogFile", "getContent", {"id": id})
     text = redact_text(data.decode("utf-8", "replace"))
@@ -192,7 +197,8 @@ async def logs_read(
     if grep:
         lines = [line for line in lines if grep.casefold() in line.casefold()]
     lines = lines[-max(1, min(tail, 5000)) :]
-    return {"id": id, "lines": len(lines), "content": "\n".join(lines)}
+    result = {"id": id, "lines": len(lines), "content": "\n".join(lines)}
+    return cap_payload(result, state.settings.response_max_bytes)
 
 
 async def notifications_get(ctx: Context) -> Any:

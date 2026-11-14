@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import secrets
 from dataclasses import dataclass
 
@@ -28,6 +29,7 @@ class AppState:
     audit: AuditLog
     limiter: RateLimiter
     plugins: frozenset[str]
+    write_lock: asyncio.Lock
 
     @classmethod
     def create(
@@ -50,4 +52,5 @@ class AppState:
             audit=AuditLog(settings.audit_path),
             limiter=RateLimiter(settings.rate_limit_per_minute),
             plugins=plugins,
+            write_lock=asyncio.Lock(),
         )

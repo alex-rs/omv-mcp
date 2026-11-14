@@ -13,9 +13,10 @@ from omv_mcp.tools._common import (
     get_state,
     guarded_write,
     list_call,
+    rpc_call_list,
     rpc_call_ro,
 )
-from omv_mcp.tools.registry import admin, op, ro
+from omv_mcp.tools.registry import admin, ro
 
 
 async def mergerfs_pools(
@@ -41,60 +42,33 @@ async def mergerfs_pools(
     )
 
 
-ALLOWED_TOOLS = frozenset({"df", "du", "info", "mount", "paths", "stats", "xattr"})
-
-
-async def mergerfs_tools(
-    ctx: Context,
-    name: str,
-    command: str,
-    args: list[str] | None = None,
-    confirm_token: str | None = None,
-) -> PlanResponse | OperationResult:
-    state = get_state(ctx)
-    if command not in ALLOWED_TOOLS:
-        raise SafetyError(f"mergerfs command {command} is not read-only and is not exposed")
-    params = {"name": name, "command": command, "args": args or []}
-
-    async def build() -> PlanSpec:
-        return PlanSpec(
-            rpc_calls=[{"service": "Mergerfs", "method": "toolsCommand", "params": params}],
-            before={"pool": name},
-            after={"command": command, "args": args or []},
-            changes=[{"field": "command", "before": None, "after": command}],
-        )
-
-    async def execute(plan: PlanSpec) -> ExecutionOutcome:
-        return ExecutionOutcome(result=await state.backend.call("Mergerfs", "toolsCommand", params))
-
-    return await guarded_write(
-        ctx=ctx,
-        tool="mergerfs_tools",
-        tier=Tier.OPERATOR,
-        args=params,
-        build=build,
-        execute=execute,
-        confirm_token=confirm_token,
-    )
-
-
 async def mergerfs_restart_pool(
     ctx: Context, name: str, confirm_token: str | None = None
 ) -> PlanResponse | OperationResult:
     state = get_state(ctx)
 
     async def build() -> PlanSpec:
+        pools = await rpc_call_list(state, "Mergerfs", "getList")
+        rows = pools.get("data", []) if isinstance(pools, dict) else []
+        pool = next(
+            (row for row in rows if isinstance(row, dict) and row.get("name") == name),
+            None,
+        )
+        if not pool:
+            raise SafetyError(f"mergerfs pool {name} not found")
+        uuid = str(pool["uuid"])
         return PlanSpec(
-            rpc_calls=[{"service": "Mergerfs", "method": "restartPool", "params": {"name": name}}],
-            before=await rpc_call_ro(state, "Mergerfs", "get", {"name": name}),
+            rpc_calls=[{"service": "Mergerfs", "method": "restartPool", "params": {"uuid": uuid}}],
+            before=await rpc_call_ro(state, "Mergerfs", "get", {"uuid": uuid}),
             after={"name": name, "restarted": True},
             changes=[{"field": "pool", "before": name, "after": "restarted"}],
             side_effects={"mount": "pool is briefly unavailable"},
         )
 
     async def execute(plan: PlanSpec) -> ExecutionOutcome:
+        uuid = str(plan.rpc_calls[0]["params"]["uuid"])
         return ExecutionOutcome(
-            result=await state.backend.call("Mergerfs", "restartPool", {"name": name})
+            result=await state.backend.call("Mergerfs", "restartPool", {"uuid": uuid})
         )
 
     return await guarded_write(
@@ -110,7 +84,6 @@ async def mergerfs_restart_pool(
 
 TOOLS = (
     ro("mergerfs_pools", mergerfs_pools, "List mergerfs pools.", "Mergerfs.getList"),
-    op("mergerfs_tools", mergerfs_tools, "Run a read-only mergerfs tool.", "Mergerfs.toolsCommand"),
     admin(
         "mergerfs_restart_pool",
         mergerfs_restart_pool,

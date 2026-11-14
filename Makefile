@@ -3,7 +3,7 @@ SHELL := /usr/bin/env bash
 
 .PHONY: install lint format typecheck test check docs docs-check \
 	testenv-build testenv-provision testenv-up testenv-reset testenv-down \
-	testenv-snapshot testenv-ssh testenv-destroy testenv-capture testenv-wait
+	testenv-snapshot testenv-ssh testenv-destroy testenv-capture testenv-wait testenv-wait-down
 
 install:
 	uv sync --extra dev
@@ -40,6 +40,7 @@ testenv-provision:
 	$(MAKE) testenv-wait
 	cd testenv && ssh -p 2222 -i .state/id_ed25519 -o UserKnownHostsFile=.state/known_hosts -o StrictHostKeyChecking=yes root@127.0.0.1 'cat /root/versions.txt' > .state/versions.txt
 	uv run python -m testenv.seed
+	$(MAKE) testenv-wait-down
 	cd testenv && docker compose down
 	chmod 0444 testenv/.state/base/*.qcow2
 	cd testenv && touch .state/base/PROVISIONED
@@ -51,6 +52,7 @@ testenv-wait:
 
 testenv-up:
 	cd testenv && test -f .state/base/PROVISIONED || { echo "run make testenv-provision first" >&2; exit 1; }
+	cd testenv && test -z "$$(docker compose ps -q)" || { echo "test VM is running; use testenv-reset or testenv-down first" >&2; exit 1; }
 	cd testenv && mkdir -p .state/run && rm -f .state/run/*.qcow2
 	cd testenv/.state/run && for d in os ssd1 ssd2 ssd3 hdd1 hdd2 hdd3 nvme1; do qemu-img create -f qcow2 -F qcow2 -b ../base/$$d.qcow2 $$d.qcow2; done
 	cd testenv && docker compose up -d
@@ -60,6 +62,9 @@ testenv-reset:
 	$(MAKE) testenv-down
 	rm -rf testenv/.state/run
 	$(MAKE) testenv-up
+
+testenv-wait-down:
+	cd testenv && for i in $$(seq 1 60); do ssh -p 2222 -i .state/id_ed25519 -o UserKnownHostsFile=.state/known_hosts -o StrictHostKeyChecking=yes -o ConnectTimeout=2 root@127.0.0.1 true >/dev/null 2>&1 || exit 0; sleep 2; done; echo "guest did not power off; stopping QEMU" >&2
 
 testenv-down:
 	cd testenv && docker compose down

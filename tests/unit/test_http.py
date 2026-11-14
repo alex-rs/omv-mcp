@@ -121,6 +121,23 @@ async def test_error_object_has_no_trace(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 @respx.mock
+async def test_non_object_success_body(monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = body(request)
+        if payload["method"] == "login":
+            return httpx.Response(
+                200, json={"response": {"status": "authenticated", "sessionid": "s"}}
+            )
+        return httpx.Response(200, text="<html>maintenance</html>")
+
+    respx.post("http://127.0.0.1:8080/rpc.php").mock(side_effect=handler)
+    backend = HttpBackend(settings(monkeypatch))
+    with pytest.raises(OmvRpcError, match="non-JSON"):
+        await backend.call("System", "noop")
+    await backend.close()
+
+
+@respx.mock
 async def test_fetch_file(monkeypatch: pytest.MonkeyPatch) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         payload = body(request)
