@@ -39,10 +39,12 @@ def wrap_errors(fn: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[An
     return wrapped
 
 
-def _lifespan(settings: Settings, backend: Any) -> Callable[[FastMCP], Any]:
+def _lifespan(
+    settings: Settings, backend: Any, plugins: frozenset[str]
+) -> Callable[[FastMCP], Any]:
     @asynccontextmanager
     async def lifespan(server: FastMCP) -> AsyncIterator[dict[str, AppState]]:
-        state = AppState.create(settings, backend=backend)
+        state = AppState.create(settings, backend=backend, plugins=plugins)
         try:
             yield {"state": state}
         finally:
@@ -114,7 +116,7 @@ def build_server(
         name="omv-mcp",
         version=__version__,
         instructions=INSTRUCTIONS,
-        lifespan=_lifespan(settings, backend),
+        lifespan=_lifespan(settings, backend, plugins),
         auth=auth,
     )
     for spec in iter_tools(plugins):

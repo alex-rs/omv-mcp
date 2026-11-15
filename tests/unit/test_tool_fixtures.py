@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 
 from omv_mcp.models import OperationResult, PlanResponse
+from omv_mcp.rpc.errors import OmvRpcError
 from omv_mcp.safety.guard import SafetyError
 from omv_mcp.settings import Mode, Settings
 from omv_mcp.state import AppState
@@ -496,3 +497,134 @@ async def test_user_set_uses_shared_privilege_guards(state: AppState) -> None:
         await user_set(ctx, "tester", groups=["sudo"])
     with pytest.raises(SafetyError, match="system uid"):
         await user_set(ctx, "tester", uid=999)
+
+
+async def test_user_set_aborts_when_existing_user_cannot_be_read(tmp_path: Path) -> None:
+    from omv_mcp.tools.shares import user_set
+
+    settings = Settings(
+        ssh_host="127.0.0.1",
+        mode=Mode.ADMIN,
+        elicit_admin=False,
+        audit_path=tmp_path / "audit.jsonl",
+    )
+    backend = FakeBackend(
+        {
+            ("System", "getInformation"): {"dirtyModules": []},
+            ("UserMgmt", "getUser"): OmvRpcError("connection reset", service="UserMgmt"),
+            ("UserMgmt", "setUser"): True,
+        }
+    )
+    state = AppState.create(settings, backend=backend)
+    ctx: Any = Ctx(state)
+
+    with pytest.raises(OmvRpcError, match="connection reset"):
+        await user_set(ctx, "tester2", comment="x")
+    assert ("UserMgmt", "setUser") not in [
+        (service, method) for service, method, _ in backend.calls
+    ]
+
+
+async def test_user_set_treats_not_found_as_create(tmp_path: Path) -> None:
+    from omv_mcp.tools.shares import user_set
+
+    settings = Settings(
+        ssh_host="127.0.0.1",
+        mode=Mode.ADMIN,
+        elicit_admin=False,
+        audit_path=tmp_path / "audit.jsonl",
+    )
+
+    def not_found(params: object) -> None:
+        raise OmvRpcError("The user 'tester2' does not exist.", service="UserMgmt")
+
+    backend = FakeBackend(
+        {
+            ("System", "getInformation"): {"dirtyModules": []},
+            ("UserMgmt", "getUser"): not_found,
+            ("UserMgmt", "setUser"): {"name": "tester2"},
+        }
+    )
+    state = AppState.create(settings, backend=backend)
+    ctx: Any = Ctx(state)
+
+    plan = await user_set(ctx, "tester2", comment="x")
+    assert isinstance(plan, PlanResponse)
+    result = await user_set(ctx, "tester2", comment="x", confirm_token=plan.confirm_token)
+    assert isinstance(result, OperationResult)
+    params = next(
+        call[2] for call in reversed(backend.calls) if call[:2] == ("UserMgmt", "setUser")
+    )
+    assert params["groups"] == []
+    assert params["sshpubkeys"] == []
+    assert params["comment"] == "x"
+
+
+async def test_confirm_refuses_target_deleted_after_plan(tmp_path: Path) -> None:
+    from omv_mcp.tools.shares import user_set
+
+    settings = Settings(
+        ssh_host="127.0.0.1",
+        mode=Mode.ADMIN,
+        elicit_admin=False,
+        audit_path=tmp_path / "audit.jsonl",
+    )
+    reads = {"count": 0}
+
+    def get_user(params: object) -> dict[str, Any]:
+        reads["count"] += 1
+        if reads["count"] == 1:
+            return {"name": "tester2", "groups": [], "sshpubkeys": ["ssh-ed25519 AAAA"]}
+        raise OmvRpcError("The user 'tester2' does not exist.", service="UserMgmt")
+
+    backend = FakeBackend(
+        {
+            ("System", "getInformation"): {"dirtyModules": []},
+            ("UserMgmt", "getUser"): get_user,
+            ("UserMgmt", "setUser"): {"name": "tester2"},
+        }
+    )
+    state = AppState.create(settings, backend=backend)
+    ctx: Any = Ctx(state)
+
+    plan = await user_set(ctx, "tester2", comment="x")
+    assert isinstance(plan, PlanResponse)
+    with pytest.raises(SafetyError, match="target changed"):
+        await user_set(ctx, "tester2", comment="x", confirm_token=plan.confirm_token)
+    assert ("UserMgmt", "setUser") not in [
+        (service, method) for service, method, _ in backend.calls
+    ]
+
+
+async def test_config_apply_reports_applied_modules(tmp_path: Path) -> None:
+    settings = Settings(
+        ssh_host="127.0.0.1",
+        mode=Mode.ADMIN,
+        elicit_admin=False,
+        audit_path=tmp_path / "audit.jsonl",
+    )
+    dirty = {"modules": ["ssh"]}
+
+    def info(params: object) -> dict[str, list[str]]:
+        return {"dirtyModules": list(dirty["modules"])}
+
+    def output(params: object) -> dict[str, Any]:
+        dirty["modules"] = []
+        return {"output": "done", "pos": 4, "running": False, "pending_output": False}
+
+    backend = FakeBackend(
+        {
+            ("System", "getInformation"): info,
+            ("Config", "applyChangesBg"): "/tmp/bgstatusABC123",
+            ("Exec", "getOutput"): output,
+        }
+    )
+    state = AppState.create(settings, backend=backend)
+    ctx: Any = Ctx(state)
+
+    plan = await config_apply(ctx, ["ssh"])
+    assert isinstance(plan, PlanResponse)
+    result = await config_apply(ctx, ["ssh"], confirm_token=plan.confirm_token)
+    assert isinstance(result, OperationResult)
+    assert result.applied_modules == ["ssh"]
+    assert result.pending_apply == []

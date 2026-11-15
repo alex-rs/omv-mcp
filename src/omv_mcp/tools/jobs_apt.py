@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import re
 from typing import Any, Literal
 
@@ -133,9 +132,10 @@ async def cron_set(
     async def build() -> PlanSpec:
         before: dict[str, Any] | None = None
         if uuid:
-            with contextlib.suppress(Exception):
-                loaded = await rpc_call_ro(state, "Cron", "get", {"uuid": uuid})
-                before = loaded if isinstance(loaded, dict) else None
+            loaded = await rpc_call_ro(state, "Cron", "get", {"uuid": uuid})
+            if not isinstance(loaded, dict):
+                raise ValueError("Cron.get did not return an object")
+            before = loaded
         if before:
             for key, value in before.items():
                 params.setdefault(key, value)

@@ -10,6 +10,7 @@ from typing import Any
 from fastmcp import Context
 
 from omv_mcp.models import Change, OperationResult, Page, PlanResponse
+from omv_mcp.rpc.errors import OmvRpcError
 from omv_mcp.rpc.redact import redact
 from omv_mcp.safety.guard import SafetyError, is_never_exposed
 from omv_mcp.shaping import filter_sort_slice, project_fields, shape_page
@@ -163,10 +164,35 @@ async def get_object(
     return result
 
 
+async def get_existing(
+    state: AppState,
+    service: str,
+    method: str,
+    params: Mapping[str, Any],
+    *,
+    missing_marker: str,
+) -> dict[str, Any] | None:
+    """Fetch an object for read-modify-write, treating only "not found" as create.
+
+    A transient read failure must abort the write: defaulting the missing fields
+    would clear settings (e.g. a user's SSH keys) on the subsequent update.
+    """
+    try:
+        result = await rpc_call_ro(state, service, method, params)
+    except OmvRpcError as exc:
+        if missing_marker.casefold() in exc.message.casefold():
+            return None
+        raise
+    if not isinstance(result, dict):
+        raise ValueError(f"{service}.{method} did not return an object")
+    return result
+
+
 @dataclass
 class ExecutionOutcome:
     result: Any = None
     job_id: str | None = None
+    applied_modules: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -277,7 +303,7 @@ async def guarded_write(
     # phase. Re-run build on execute so the confirmed call uses the same state,
     # without changing the token-bound plan itself.
     rebuilt = await build()
-    if rebuilt.before is not None and _fingerprint(rebuilt.before) != plan.before_fingerprint:
+    if _fingerprint(rebuilt.before) != plan.before_fingerprint:
         raise SafetyError("the target changed since the plan was issued")
 
     from omv_mcp.safety.modes import Tier
@@ -300,7 +326,7 @@ async def guarded_write(
                     "mutation dirtied unexpected modules: "
                     f"expected={sorted(plan.modules_expected)} dirtied={dirtied}"
                 )
-            applied: list[str] = []
+            applied: list[str] = list(outcome.applied_modules)
             if apply:
                 if plan.dirty_before:
                     raise SafetyError(

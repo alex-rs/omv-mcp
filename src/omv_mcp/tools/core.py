@@ -258,6 +258,7 @@ async def config_apply(
         return ExecutionOutcome(
             result=result.model_dump(),
             job_id=filename if result.running else None,
+            applied_modules=[] if result.running else list(modules),
         )
 
     return await guarded_write(

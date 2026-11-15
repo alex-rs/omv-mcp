@@ -23,6 +23,7 @@ from omv_mcp.tools._common import (
     ExecutionOutcome,
     PlanSpec,
     cap_payload,
+    get_existing,
     get_state,
     guarded_write,
     list_call,
@@ -920,10 +921,13 @@ async def user_set(
         params["password"] = password.get_secret_value()
 
     async def build() -> PlanSpec:
-        before: dict[str, Any] | None = None
-        with contextlib.suppress(Exception):
-            loaded = await rpc_call_ro(state, "UserMgmt", "getUser", {"name": name})
-            before = loaded if isinstance(loaded, dict) else None
+        before = await get_existing(
+            state,
+            "UserMgmt",
+            "getUser",
+            {"name": name},
+            missing_marker="does not exist",
+        )
         defaults: dict[str, Any] = {
             "groups": [],
             "password": "",
@@ -989,10 +993,13 @@ async def group_set(
         params["members"] = members
 
     async def build() -> PlanSpec:
-        before: dict[str, Any] | None = None
-        with contextlib.suppress(Exception):
-            loaded = await rpc_call_ro(state, "UserMgmt", "getGroup", {"name": name})
-            before = loaded if isinstance(loaded, dict) else None
+        before = await get_existing(
+            state,
+            "UserMgmt",
+            "getGroup",
+            {"name": name},
+            missing_marker="does not exist",
+        )
         if before:
             params.setdefault("comment", before.get("comment", ""))
             params.setdefault("members", before.get("members", []))
