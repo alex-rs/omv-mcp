@@ -190,6 +190,7 @@ TOOLS = (
         snapraid_command,
         "Run a read-only snapraid command or scrub.",
         "SnapRaid.executeCommand",
+        idempotent=False,
     ),
     admin(
         "snapraid_sync",

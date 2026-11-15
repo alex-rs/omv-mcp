@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import contextlib
-import re
 from typing import Any, Literal
 
 from fastmcp import Context
@@ -12,8 +11,11 @@ from omv_mcp.omv import NEW_UUID
 from omv_mcp.rpc.redact import redact
 from omv_mcp.safety.guard import (
     SafetyError,
+    check_privileged_groups,
     check_protected_group,
     check_protected_user,
+    check_share_options,
+    check_user_uid,
     shared_folder_refs,
 )
 from omv_mcp.safety.modes import Tier
@@ -28,16 +30,6 @@ from omv_mcp.tools._common import (
     rpc_call_ro,
 )
 from omv_mcp.tools.registry import admin, op, ro
-
-_DANGEROUS_OPTIONS = re.compile(
-    r"(?i)(pre[- ]?exec|post[- ]?exec|root\s+pre[- ]?exec|root\s+post[- ]?exec|"
-    r"magic\s+script|no_root_squash|insecure)"
-)
-
-
-def _check_options(value: str | None) -> None:
-    if value and _DANGEROUS_OPTIONS.search(value):
-        raise SafetyError("refusing dangerous share option")
 
 
 def _list_args(
@@ -392,7 +384,7 @@ async def smb_share_set(
 ) -> PlanResponse | OperationResult:
     state = get_state(ctx)
     if extraoptions is not None:
-        _check_options(extraoptions)
+        check_share_options(extraoptions)
     params: dict[str, Any] = {
         "uuid": uuid or NEW_UUID,
         "sharedfolderref": sharedfolderref,
@@ -559,9 +551,9 @@ async def nfs_share_set(
 ) -> PlanResponse | OperationResult:
     state = get_state(ctx)
     if options is not None:
-        _check_options(options)
+        check_share_options(options)
     if extraoptions is not None:
-        _check_options(extraoptions)
+        check_share_options(extraoptions)
     params: dict[str, Any] = {
         "uuid": uuid or NEW_UUID,
         "sharedfolderref": sharedfolderref,
@@ -706,7 +698,7 @@ async def rsyncd_module_set(
 ) -> PlanResponse | OperationResult:
     state = get_state(ctx)
     if extraoptions is not None:
-        _check_options(extraoptions)
+        check_share_options(extraoptions)
     params: dict[str, Any] = {
         "uuid": uuid or NEW_UUID,
         "sharedfolderref": sharedfolderref,
@@ -897,11 +889,8 @@ async def user_set(
 ) -> PlanResponse | OperationResult:
     state = get_state(ctx)
     check_protected_user(name, state.settings.protected_users)
-    if uid is not None and uid < 1000:
-        raise SafetyError("refusing to assign a system uid")
-    for group in groups or []:
-        if group in {"root", "admin", "sudo", "ssh", "_ssh"}:
-            raise SafetyError(f"refusing to add user to privileged group {group}")
+    check_user_uid(uid)
+    check_privileged_groups(groups or [])
     base_args: dict[str, Any] = {"name": name, "apply": apply}
     for key, value in (
         ("comment", comment),
@@ -1116,7 +1105,13 @@ TOOLS = (
         "List filesystems that can host shared folders.",
         "ShareMgmt.getCandidates",
     ),
-    op("shared_folder_create", shared_folder_create, "Create a shared folder.", "ShareMgmt.set"),
+    op(
+        "shared_folder_create",
+        shared_folder_create,
+        "Create a shared folder.",
+        "ShareMgmt.set",
+        idempotent=False,
+    ),
     admin(
         "shared_folder_delete",
         shared_folder_delete,
@@ -1139,7 +1134,13 @@ TOOLS = (
     ),
     ro("shared_folder_acl_get", shared_folder_acl_get, "Return file ACLs.", "ShareMgmt.getFileACL"),
     ro("snapshots_list", snapshots_list, "List snapshots.", "ShareMgmt.enumerateAllSnapshots"),
-    op("snapshot_create", snapshot_create, "Create a btrfs snapshot.", "ShareMgmt.createSnapshot"),
+    op(
+        "snapshot_create",
+        snapshot_create,
+        "Create a btrfs snapshot.",
+        "ShareMgmt.createSnapshot",
+        idempotent=False,
+    ),
     ro("smb_settings", smb_settings, "Return SMB settings.", "SMB.getSettings", "SMB.getStats"),
     ro("smb_shares_list", smb_shares_list, "List SMB shares.", "SMB.getShareList"),
     ro("smb_share_get", smb_share_get, "Return an SMB share.", "SMB.getShare"),
@@ -1176,6 +1177,7 @@ TOOLS = (
         rsyncd_module_delete,
         "Delete an rsyncd module.",
         "Rsyncd.deleteModule",
+        destructive=True,
     ),
     ro(
         "ssh_settings",

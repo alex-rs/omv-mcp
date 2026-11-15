@@ -446,3 +446,53 @@ async def test_compose_container_tools_use_id_and_hide_exec_token(tmp_path: Path
     log = await compose_container_log(ctx, id="cid", name="whoami", tail=1)
     assert log["content"] == "line two"
     assert backend.calls[-1][2] == {"id": "cid", "name": "whoami"}
+
+
+async def test_rpc_call_refuses_recursive_share_delete(state: AppState) -> None:
+    ctx: Any = Ctx(state)
+    with pytest.raises(SafetyError, match="recursive shared-folder deletion"):
+        await rpc_call(ctx, "ShareMgmt", "delete", {"uuid": "target", "recursive": True})
+
+
+async def test_rpc_call_refuses_privileged_user_groups(state: AppState) -> None:
+    ctx: Any = Ctx(state)
+    with pytest.raises(SafetyError, match="privileged group sudo"):
+        await rpc_call(ctx, "UserMgmt", "setUser", {"name": "tester", "groups": ["users", "sudo"]})
+
+
+async def test_rpc_call_refuses_system_uid_and_bulk_import(state: AppState) -> None:
+    ctx: Any = Ctx(state)
+    with pytest.raises(SafetyError, match="system uid"):
+        await rpc_call(ctx, "UserMgmt", "setUser", {"name": "tester", "uid": 0})
+    with pytest.raises(SafetyError, match="bulk user/group import"):
+        await rpc_call(ctx, "UserMgmt", "importUsers", {"csv": ""})
+
+
+@pytest.mark.parametrize(
+    ("service", "method"),
+    [("SMB", "setShare"), ("NFS", "setShare"), ("Rsyncd", "setModule")],
+)
+async def test_rpc_call_refuses_dangerous_share_options(
+    state: AppState, service: str, method: str
+) -> None:
+    ctx: Any = Ctx(state)
+    with pytest.raises(SafetyError, match="dangerous share option"):
+        await rpc_call(
+            ctx, service, method, {"sharedfolderref": "target", "extraoptions": "preexec=/bin/sh"}
+        )
+
+
+async def test_rpc_call_gates_scheduled_power(state: AppState) -> None:
+    ctx: Any = Ctx(state)
+    with pytest.raises(SafetyError, match="OMV_MCP_ALLOW_POWER"):
+        await rpc_call(ctx, "PowerMgmt", "setScheduledJob", {})
+
+
+async def test_user_set_uses_shared_privilege_guards(state: AppState) -> None:
+    from omv_mcp.tools.shares import user_set
+
+    ctx: Any = Ctx(state)
+    with pytest.raises(SafetyError, match="privileged group sudo"):
+        await user_set(ctx, "tester", groups=["sudo"])
+    with pytest.raises(SafetyError, match="system uid"):
+        await user_set(ctx, "tester", uid=999)

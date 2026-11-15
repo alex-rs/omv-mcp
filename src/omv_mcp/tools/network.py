@@ -9,8 +9,11 @@ from omv_mcp.models import OperationResult, PlanResponse
 from omv_mcp.rpc.redact import redact
 from omv_mcp.safety.guard import (
     SafetyError,
+    check_privileged_groups,
     check_protected_group,
     check_protected_user,
+    check_share_options,
+    check_user_uid,
     is_generic_denied,
     is_never_exposed,
     is_ro_method,
@@ -157,6 +160,7 @@ async def rpc_call(
         )
     service_key = service.casefold()
     method_key = method.casefold()
+    params_dict = params or {}
     if (
         service_key == "system"
         and method_key
@@ -170,16 +174,42 @@ async def rpc_call(
         and not state.settings.allow_power
     ):
         raise SafetyError("power RPCs are disabled by OMV_MCP_ALLOW_POWER")
-    if service_key == "usermgmt" and method_key in {"setuser", "deleteuser"}:
-        check_protected_user(str((params or {}).get("name", "")), state.settings.protected_users)
-    if service_key == "usermgmt" and method_key in {"setgroup", "deletegroup"}:
-        check_protected_group(str((params or {}).get("name", "")), state.settings.protected_groups)
+    if (
+        service_key == "powermgmt"
+        and method_key in {"setscheduledjob", "executescheduledjob"}
+        and not state.settings.allow_power
+    ):
+        raise SafetyError("power RPCs are disabled by OMV_MCP_ALLOW_POWER")
+    if service_key == "usermgmt":
+        if method_key in {"importusers", "importgroups"}:
+            raise SafetyError(
+                "bulk user/group import is not exposed; use user_set/group_set one object at a time"
+            )
+        if method_key == "setuser":
+            check_protected_user(str(params_dict.get("name", "")), state.settings.protected_users)
+            uid = params_dict.get("uid")
+            if isinstance(uid, int):
+                check_user_uid(uid)
+            groups = params_dict.get("groups")
+            if isinstance(groups, list):
+                check_privileged_groups(groups)
+        if method_key in {"deleteuser"}:
+            check_protected_user(str(params_dict.get("name", "")), state.settings.protected_users)
+        if method_key in {"setgroup", "deletegroup"}:
+            check_protected_group(str(params_dict.get("name", "")), state.settings.protected_groups)
+    if service_key in {"smb", "nfs", "rsyncd"} and method_key in {"setshare", "setmodule"}:
+        for key in ("options", "extraoptions"):
+            value = params_dict.get(key)
+            if isinstance(value, str):
+                check_share_options(value)
     if service_key == "sharemgmt" and method_key == "delete":
-        refs = await shared_folder_refs(state.backend, str((params or {}).get("uuid", "")))
+        if params_dict.get("recursive"):
+            raise SafetyError("recursive shared-folder deletion is not exposed")
+        refs = await shared_folder_refs(state.backend, str(params_dict.get("uuid", "")))
         if refs:
             raise SafetyError("refusing: shared folder is referenced by " + ", ".join(refs))
     if is_ro_method(service, method):
-        result = await state.backend.call(service, method, params or {})
+        result = await state.backend.call(service, method, params_dict)
         return _cap(redact(result), state.settings.response_max_bytes)
 
     recheck = None
@@ -259,6 +289,7 @@ TOOLS = (
         notifications_test_email,
         "Send a test notification email.",
         "EmailNotification.sendTestEmail",
+        idempotent=False,
     ),
     ro("rpc_describe", rpc_describe, "Describe an OMV RPC service and its bundled schema.", "none"),
     ro(

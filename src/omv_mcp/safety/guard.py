@@ -66,6 +66,13 @@ NEVER_EXPOSED: frozenset[str] = frozenset(
     }
 )
 
+PRIVILEGED_GROUPS: frozenset[str] = frozenset({"root", "admin", "sudo", "ssh", "_ssh"})
+
+_DANGEROUS_SHARE_OPTIONS = re.compile(
+    r"(?i)(pre[- ]?exec|post[- ]?exec|root\s+pre[- ]?exec|root\s+post[- ]?exec|"
+    r"magic\s+script|no_root_squash|insecure)"
+)
+
 RO_METHOD_RE = re.compile(r"^(get|enumerate|is)[A-Z]|^getList$|^get$")
 RO_DENY: frozenset[str] = frozenset(
     {
@@ -168,6 +175,22 @@ def check_protected_user(name: str, protected: frozenset[str]) -> None:
 def check_protected_group(name: str, protected: frozenset[str]) -> None:
     if name in protected:
         raise SafetyError(f"refusing to modify protected group {name}")
+
+
+def check_privileged_groups(groups: list[str]) -> None:
+    for group in groups:
+        if group in PRIVILEGED_GROUPS:
+            raise SafetyError(f"refusing to add user to privileged group {group}")
+
+
+def check_user_uid(uid: int | None) -> None:
+    if uid is not None and uid < 1000:
+        raise SafetyError("refusing to assign a system uid")
+
+
+def check_share_options(value: str | None) -> None:
+    if value and _DANGEROUS_SHARE_OPTIONS.search(value):
+        raise SafetyError("refusing dangerous share option")
 
 
 def _contains_uuid(value: Any, uuid: str) -> bool:

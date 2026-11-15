@@ -445,6 +445,7 @@ TOOLS = (
         smart_run_test,
         "Start a scheduled SMART test and wait for it.",
         "Smart.executeScheduledTest",
+        idempotent=False,
     ),
     ro("quota_get", quota_get, "Return quota information.", "Quota.get", "Quota.getByTypeName"),
     ro(

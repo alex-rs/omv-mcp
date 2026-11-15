@@ -89,5 +89,6 @@ TOOLS = (
         mergerfs_restart_pool,
         "Restart a mergerfs pool.",
         "Mergerfs.restartPool",
+        idempotent=False,
     ),
 )

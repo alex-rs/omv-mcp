@@ -23,7 +23,7 @@ Every mutating tool:
 
 ## Never exposed
 
-Disk wipe, filesystem create/umount/mount-point changes, fstab writes, network interface/proxy writes, firewall writes, SSH writes, WireGuard writes, web GUI settings, user settings/password-by-context, certificate deletion/copy, compose engine commands, engine attach, apt/plugin uploads and environment-variable writes. `Cterm.*` is never exposed. `rpc_call` refuses these in every mode.
+Disk wipe, filesystem create/umount/mount-point changes, fstab writes, network interface/proxy writes, firewall writes, SSH writes, WireGuard writes, web GUI settings, user settings/password-by-context, certificate deletion/copy, compose engine commands, engine attach, apt/plugin uploads and environment-variable writes. `Cterm.*` is never exposed. `rpc_call` refuses these in every mode, and its admin path enforces the same protected-user/group, system-UID, share-option and non-recursive share-delete guards as the dedicated tools. That includes scheduled power actions when `OMV_MCP_ALLOW_POWER=false`.
 
 ## Protected resources
 
