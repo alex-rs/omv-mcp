@@ -15,20 +15,27 @@ uv sync
 uv run omv-mcp --help
 ```
 
-Or run the published entry point:
+Or install this checkout as a tool:
 
 ```sh
-uvx omv-mcp --backend ssh --host 127.0.0.1 --port 2222 --mode readonly
+uv tool install .
+omv-mcp --backend ssh --host 127.0.0.1 --port 2222 --mode readonly
 ```
+
+This project is not published on PyPI. The `omv-mcp` distribution on PyPI is an
+unrelated project, so do not run `uvx omv-mcp` or `pip install omv-mcp`.
 
 ## Claude Code / MCP client
 
 ```sh
-claude mcp add omv -- uvx omv-mcp \
+claude mcp add omv -- uv run --directory /path/to/omv-mcp omv-mcp \
   --backend ssh --host 127.0.0.1 --port 2222 --mode readonly
 ```
 
-`127.0.0.1:2222` is the local disposable test VM. Point it at a real OMV host only when you have deliberately chosen to do so; the test guard applies to the bundled integration suite, not to a user-configured server.
+Replace `/path/to/omv-mcp` with this checkout; `uvx --from /path/to/omv-mcp omv-mcp`
+works too. `127.0.0.1:2222` is the local disposable test VM. Point it at a real OMV
+host only when you have deliberately chosen to do so; the test guard applies to the
+bundled integration suite, not to a user-configured server.
 
 ## Modes
 
@@ -81,6 +88,7 @@ make check                        # ruff, mypy, unit tests
 make testenv-build                # build the disposable OMV 8 VM disks
 make testenv-provision            # install OMV + plugins, seed state, snapshot base
 make testenv-up                   # boot overlays from the seeded base
+make smoke                        # read-only smoke test against the booted VM
 OMV_MCP_TEST_VM=1 uv run pytest -m integration
 make testenv-reset                # discard overlay writes
 make testenv-destroy              # remove all VM state
