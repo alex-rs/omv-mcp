@@ -39,6 +39,16 @@ def test_redacts_all_string_values() -> None:
     assert redact({"command": "echo password=abc"})["command"] == "echo password=***"
 
 
+def test_does_not_redact_non_secret_passno() -> None:
+    data = {"passno": 0, "freq": 0, "password": "hunter2", "pass": "hunter2"}
+    assert redact(data) == {
+        "passno": 0,
+        "freq": 0,
+        "password": "***",
+        "pass": "***",
+    }
+
+
 def test_redacts_camel_case_omv_keys() -> None:
     data = {
         "privatekeyserver": "PRIV",

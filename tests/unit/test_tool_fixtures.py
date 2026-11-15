@@ -216,6 +216,29 @@ async def test_list_tools_redact_rows(tmp_path: Path) -> None:
     assert page.items[0]["comment"] == "password=***"
 
 
+async def test_fstab_list_keeps_passno_int(tmp_path: Path) -> None:
+    from omv_mcp.tools.storage import fstab_list
+
+    settings = Settings(
+        ssh_host="127.0.0.1",
+        mode=Mode.READONLY,
+        audit_path=tmp_path / "audit.jsonl",
+    )
+    backend = FakeBackend(
+        {
+            ("FsTab", "enumerateEntries"): [
+                {"uuid": "entry-a", "dir": "/", "passno": 0, "opts": "defaults"},
+                {"uuid": "entry-b", "dir": "/srv/data", "passno": 2, "opts": "defaults,noatime"},
+            ]
+        }
+    )
+    state = AppState.create(settings, backend=backend)
+    ctx: Any = Ctx(state)
+
+    page = await fstab_list(ctx, fields="all")
+    assert [item["passno"] for item in page.items] == [0, 2]
+
+
 async def test_snapshots_filter_by_mount(tmp_path: Path) -> None:
     from omv_mcp.tools.shares import snapshots_list
 

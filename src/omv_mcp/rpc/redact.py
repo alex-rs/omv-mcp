@@ -21,6 +21,10 @@ _SECRET_KEY_PARTS = (
     "httppassword",
     "execurl",
 )
+# Keys whose names contain a secret substring but whose values are not secret.
+# passno is the fstab fsck pass number (0/1/2); redacting it hides a required
+# integer and replaces it with a string.
+_NON_SECRET_KEYS = frozenset({"passno"})
 _REDACTED = "***"
 _PEM_PRIVATE = re.compile(
     r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----",
@@ -47,6 +51,8 @@ _XML_VALUE = re.compile(
 
 def _secret_key(key: object) -> bool:
     text = str(key).lower().replace("-", "_")
+    if text in _NON_SECRET_KEYS:
+        return False
     return any(part in text for part in _SECRET_KEY_PARTS)
 
 
