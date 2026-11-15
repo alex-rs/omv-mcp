@@ -1,7 +1,7 @@
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := check
 
-.PHONY: install lint format typecheck test check docs docs-check \
+.PHONY: install lint format typecheck test check docs docs-check smoke \
 	testenv-build testenv-provision testenv-up testenv-reset testenv-down \
 	testenv-snapshot testenv-ssh testenv-destroy testenv-capture testenv-wait testenv-wait-down
 
@@ -22,6 +22,9 @@ test:
 	uv run pytest
 
 check: lint typecheck test docs-check
+
+smoke:
+	PYTHONPATH=. uv run python scripts/smoke_ro.py
 
 docs:
 	uv run python scripts/gen_tools_doc.py
