@@ -46,6 +46,29 @@ async def test_admin_server_includes_writes_and_power() -> None:
     assert "user_delete" in names
 
 
+async def test_share_export_deletes_are_admin_only() -> None:
+    deletes = {"smb_share_delete", "nfs_share_delete", "rsyncd_module_delete"}
+
+    operator = {
+        tool.name: tool
+        for tool in await build_server(
+            Settings(ssh_host="127.0.0.1", mode=Mode.OPERATOR)
+        ).list_tools()
+    }
+    assert deletes.isdisjoint(operator)
+
+    admin = {
+        tool.name: tool
+        for tool in await build_server(Settings(ssh_host="127.0.0.1", mode=Mode.ADMIN)).list_tools()
+    }
+    assert deletes <= admin.keys()
+    for name in deletes:
+        annotations = admin[name].annotations
+        assert annotations is not None
+        assert annotations.destructive_hint is True
+        assert annotations.read_only_hint is False
+
+
 async def test_probe_plugins_ignores_available_not_installed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

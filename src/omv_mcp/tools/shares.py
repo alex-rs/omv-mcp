@@ -492,7 +492,7 @@ async def smb_share_delete(
     return await guarded_write(
         ctx=ctx,
         tool="smb_share_delete",
-        tier=Tier.OPERATOR,
+        tier=Tier.ADMIN,
         args={"uuid": uuid, "apply": apply},
         build=build,
         execute=execute,
@@ -635,7 +635,7 @@ async def nfs_share_delete(
     return await guarded_write(
         ctx=ctx,
         tool="nfs_share_delete",
-        tier=Tier.OPERATOR,
+        tier=Tier.ADMIN,
         args={"uuid": uuid, "apply": apply},
         build=build,
         execute=execute,
@@ -802,7 +802,7 @@ async def rsyncd_module_delete(
     return await guarded_write(
         ctx=ctx,
         tool="rsyncd_module_delete",
-        tier=Tier.OPERATOR,
+        tier=Tier.ADMIN,
         args={"uuid": uuid, "apply": apply},
         build=build,
         execute=execute,
@@ -1152,7 +1152,7 @@ TOOLS = (
     ro("smb_shares_list", smb_shares_list, "List SMB shares.", "SMB.getShareList"),
     ro("smb_share_get", smb_share_get, "Return an SMB share.", "SMB.getShare"),
     op("smb_share_set", smb_share_set, "Create or update an SMB share.", "SMB.setShare"),
-    op(
+    admin(
         "smb_share_delete",
         smb_share_delete,
         "Delete an SMB share.",
@@ -1163,7 +1163,7 @@ TOOLS = (
     ro("nfs_shares_list", nfs_shares_list, "List NFS shares.", "NFS.getShareList"),
     ro("nfs_share_get", nfs_share_get, "Return an NFS share.", "NFS.getShare"),
     op("nfs_share_set", nfs_share_set, "Create or update an NFS share.", "NFS.setShare"),
-    op(
+    admin(
         "nfs_share_delete",
         nfs_share_delete,
         "Delete an NFS share.",
@@ -1179,7 +1179,7 @@ TOOLS = (
         "Create or update an rsyncd module.",
         "Rsyncd.setModule",
     ),
-    op(
+    admin(
         "rsyncd_module_delete",
         rsyncd_module_delete,
         "Delete an rsyncd module.",
