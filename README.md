@@ -3,7 +3,7 @@
 A safety-first [MCP](https://modelcontextprotocol.io) server for administering
 [OpenMediaVault](https://www.openmediavault.org) 8 over SSH or HTTP.
 
-- **Read-only by default.** Every tool starts at the `readonly` tier.
+- **Read-only by default.** The server starts in the `readonly` tier.
 - **Plan before write.** Mutating tools return a diff and a single-use confirm token.
 - **No implicit apply.** OMV config changes stay dirty until you call `config_apply`
   with an explicit module list.
