@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import re
 from collections.abc import Mapping
 from typing import Any
@@ -191,6 +192,14 @@ class HttpBackend:
         return response.content
 
     async def close(self) -> None:
+        if self._sessionid:
+            with contextlib.suppress(Exception):
+                await self._client.post(
+                    "rpc.php",
+                    json=self._body("Session", "logout", {}),
+                    headers=self._headers(),
+                    timeout=5,
+                )
         await self._client.aclose()
 
 

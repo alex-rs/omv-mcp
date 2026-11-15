@@ -45,6 +45,26 @@ async def test_login_and_session_header(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 @respx.mock
+async def test_close_logs_out(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = body(request)
+        calls.append(payload["method"])
+        if payload["method"] == "login":
+            return httpx.Response(
+                200, json={"response": {"status": "authenticated", "sessionid": "s1"}}
+            )
+        return httpx.Response(200, json={"response": None})
+
+    respx.post("http://127.0.0.1:8080/rpc.php").mock(side_effect=handler)
+    backend = HttpBackend(settings(monkeypatch))
+    await backend.call("System", "getInformation")
+    await backend.close()
+    assert calls == ["login", "getInformation", "logout"]
+
+
+@respx.mock
 async def test_challenge_required(monkeypatch: pytest.MonkeyPatch) -> None:
     respx.post("http://127.0.0.1:8080/rpc.php").mock(
         return_value=httpx.Response(200, json={"response": {"status": "challengeRequired"}})
