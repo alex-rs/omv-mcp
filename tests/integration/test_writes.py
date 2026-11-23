@@ -9,6 +9,7 @@ from omv_mcp.safety.guard import SafetyError
 from omv_mcp.tools.core import config_apply
 from omv_mcp.tools.jobs_apt import cron_delete, cron_list, cron_run, cron_set
 from omv_mcp.tools.network import rpc_call
+from omv_mcp.tools.plugins.writecache import writecache_set, writecache_settings
 from omv_mcp.tools.shares import (
     group_delete,
     group_get,
@@ -142,6 +143,17 @@ async def test_cron_and_config_refusal(ctx: Any) -> None:
         await config_apply(ctx, None)
     with pytest.raises(SafetyError, match="modules is required"):
         await config_apply(ctx, [])
+
+
+async def test_writecache_settings_roundtrip(ctx: Any) -> None:
+    before = await writecache_settings(ctx)
+    original = before["settings"]["flush_hourly"]
+    await _execute(ctx, writecache_set, flush_hourly=not original)
+    after = await writecache_settings(ctx)
+    assert after["settings"]["flush_hourly"] is not original
+    await _execute(ctx, writecache_set, flush_hourly=original)
+    restored = await writecache_settings(ctx)
+    assert restored["settings"]["flush_hourly"] is original
 
 
 async def test_rpc_call_never_exposed(ctx: Any) -> None:

@@ -125,7 +125,7 @@ binds without a token are refused. Put TLS in front of any remote deployment.
 | Mode | Adds |
 |---|---|
 | `readonly` (default) | All read tools, including read-only `rpc_call` |
-| `operator` | Share/user/group/cron/rsync edits, SMART and SnapRAID jobs, writecache flush, config apply/revert |
+| `operator` | Share/user/group/cron/rsync edits, SMART and SnapRAID jobs, writecache settings and flush, config apply/revert |
 | `admin` | Deletes, package/plugin installs, arbitrary non-read-only RPCs, and power (only with `OMV_MCP_ALLOW_POWER=true`) |
 
 Dangerous methods (disk wipe, filesystem create/umount, network/firewall/SSH/WireGuard

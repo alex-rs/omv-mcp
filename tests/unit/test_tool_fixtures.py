@@ -407,6 +407,84 @@ async def test_snapraid_arrays_fetches_array_config(tmp_path: Path) -> None:
     assert backend.calls[-1][2] == {"uuid": "array-1"}
 
 
+async def test_writecache_set_merges_and_strips_status(tmp_path: Path) -> None:
+    from omv_mcp.tools.plugins.writecache import writecache_set
+
+    settings = Settings(
+        ssh_host="127.0.0.1",
+        mode=Mode.OPERATOR,
+        audit_path=tmp_path / "audit.jsonl",
+    )
+    current = fixture("WriteCache", "getSettings")
+    dirty: dict[str, list[str]] = {"modules": []}
+
+    def info(_params: object) -> dict[str, list[str]]:
+        return {"dirtyModules": list(dirty["modules"])}
+
+    def set_settings(params: dict[str, Any]) -> dict[str, Any]:
+        dirty["modules"] = ["writecache"]
+        return dict(params)
+
+    backend = FakeBackend(
+        {
+            ("System", "getInformation"): info,
+            ("WriteCache", "getSettings"): current,
+            ("WriteCache", "setSettings"): set_settings,
+        }
+    )
+    state = AppState.create(settings, backend=backend)
+    ctx: Any = Ctx(state)
+
+    plan = await writecache_set(ctx, flush_hourly=True, hour=4)
+    assert isinstance(plan, PlanResponse)
+    params = plan.rpc_calls[0]["params"]
+    assert "status" not in params
+    assert "status" not in plan.before
+    assert params["flush_hourly"] is True
+    assert params["hour"] == 4
+    assert params["enable"] is True
+    assert params["paths"] == current["paths"]
+    assert plan.modules_expected == ["writecache"]
+    assert {change.field for change in plan.changes} == {"flush_hourly", "hour"}
+
+    result = await writecache_set(ctx, flush_hourly=True, hour=4, confirm_token=plan.confirm_token)
+    assert isinstance(result, OperationResult)
+    sent = next(
+        call[2] for call in backend.calls if call[0] == "WriteCache" and call[1] == "setSettings"
+    )
+    assert sent == params
+    assert result.dirtied_modules == ["writecache"]
+    assert result.pending_apply == ["writecache"]
+
+
+async def test_writecache_set_normalizes_entries_and_validates(tmp_path: Path) -> None:
+    from omv_mcp.tools.plugins.writecache import writecache_set
+
+    settings = Settings(
+        ssh_host="127.0.0.1",
+        mode=Mode.OPERATOR,
+        audit_path=tmp_path / "audit.jsonl",
+    )
+    backend = FakeBackend(
+        {
+            ("System", "getInformation"): {"dirtyModules": []},
+            ("WriteCache", "getSettings"): fixture("WriteCache", "getSettings"),
+        }
+    )
+    state = AppState.create(settings, backend=backend)
+    ctx: Any = Ctx(state)
+
+    plan = await writecache_set(ctx, paths="/var/log = flush, /var/tmp = drop, /var/log = flush")
+    assert isinstance(plan, PlanResponse)
+    assert plan.rpc_calls[0]["params"]["paths"] == "/var/log = flush\n/var/tmp = drop"
+    with pytest.raises(ValueError, match="sharedfolderref is required"):
+        await writecache_set(ctx, use_tmpfs=False)
+    with pytest.raises(ValueError, match="ram_backing"):
+        await writecache_set(ctx, ram_backing="disk")
+    with pytest.raises(ValueError, match="hour"):
+        await writecache_set(ctx, hour=24)
+
+
 async def test_writecache_flush_passes_rotate_and_waits(tmp_path: Path) -> None:
     from omv_mcp.tools.plugins.writecache import writecache_flush
 

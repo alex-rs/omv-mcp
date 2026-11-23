@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from mcp.types import ToolAnnotations
 
@@ -44,6 +46,22 @@ async def test_admin_server_includes_writes_and_power() -> None:
     assert "config_apply" in names
     assert "system_power" in names
     assert "user_delete" in names
+
+
+async def test_writecache_set_is_operator_write() -> None:
+    plugins = frozenset({"openmediavault-writecache"})
+
+    async def tools(mode: Mode) -> dict[str, Any]:
+        server = build_server(Settings(ssh_host="127.0.0.1", mode=mode), plugins=plugins)
+        return {tool.name: tool for tool in await server.list_tools()}
+
+    assert "writecache_set" not in await tools(Mode.READONLY)
+    operator = await tools(Mode.OPERATOR)
+    assert "writecache_set" in operator
+    annotations = operator["writecache_set"].annotations
+    assert annotations is not None
+    assert annotations.read_only_hint is False
+    assert annotations.idempotent_hint is True
 
 
 async def test_share_export_deletes_are_admin_only() -> None:
